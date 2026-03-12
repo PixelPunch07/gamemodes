@@ -99,7 +99,22 @@ function HORDE:ApplyDamage(npc, hitgroup, dmginfo)
     dmginfo:AddDamage(bonus.post_add)
     dmginfo:SetDamageCustom(HORDE.DMG_CALCULATED)
 
-    -- Vortigaunt damage
+    -- -------------------------------------------------------------------------
+    -- XENO ADAPTATION: Enemies passively resist damage types they've been
+    -- exposed to.  Track the last Horde damage type on the NPC so the death
+    -- hook can credit the correct type.
+    -- -------------------------------------------------------------------------
+    if HORDE.waveset == "xeno" then
+        local horde_dmg_type = HORDE:GetDamageType(dmginfo)
+        npc.Horde_Last_HordeDmgType = horde_dmg_type
+
+        -- Apply the accumulated adaptation resistance for this damage type.
+        local resist = HORDE.xeno_adaptation[horde_dmg_type]
+        if resist and resist > 0 then
+            dmginfo:ScaleDamage(1 - resist)
+        end
+    end
+    -- -------------------------------------------------------------------------
     if HORDE:IsLightningDamage(dmginfo) and dmginfo:GetInflictor():GetClass() == "npc_vortigaunt" then
         -- Splash damaage
         local dmg = DamageInfo()

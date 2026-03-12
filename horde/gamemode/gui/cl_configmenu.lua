@@ -1,7 +1,7 @@
 local PANEL = {}
 
 function PANEL:Init()
-    self:SetSize(256, 400)
+    self:SetSize(256, 470)
     self:SetPos((ScrW() / 2) - (self:GetWide() / 2), (ScrH() / 2) - (self:GetTall() / 2))
     self:MakePopup()
 
@@ -60,6 +60,20 @@ function PANEL:Init()
     mapconfig.DoClick = function()
         RunConsoleCommand("horde_map_config")
         HORDE:ToggleConfigMenu()
+    end
+
+    -- Waveset selector button
+    local wavesetconfig = vgui.Create("DButton", self)
+    wavesetconfig:SetSize(700, 64)
+    wavesetconfig:Dock(TOP)
+    wavesetconfig:DockMargin(10, 4, 10, 0)
+    wavesetconfig:SetText("Waveset")
+    wavesetconfig:SetFont("Heading")
+    -- Tint the button text green to hint at the feature
+    wavesetconfig:SetColor(Color(80, 220, 100))
+    wavesetconfig.DoClick = function()
+        HORDE:ToggleConfigMenu()
+        HORDE:ToggleWavesetMenu()
     end
 
     local stats = vgui.Create("DButton", self)

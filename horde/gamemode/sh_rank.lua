@@ -2,25 +2,44 @@ if SERVER then
 util.AddNetworkString("Horde_SyncExp")
 end
 
-HORDE.Rank_Novice = "Novice" -- 0 - 4
-HORDE.Rank_Amateur = "Amateur" -- 5 - 9
-HORDE.Rank_Skilled = "Skilled" -- 10 - 14
+HORDE.Rank_Novice = "Novice"             -- 0  - 4
+HORDE.Rank_Amateur = "Amateur"           -- 5  - 9
+HORDE.Rank_Skilled = "Skilled"           -- 10 - 14
 HORDE.Rank_Professional = "Professional" -- 15 - 19
-HORDE.Rank_Expert = "Expert" -- 20 - 24
-HORDE.Rank_Champion = "Champion" -- 25 - 29
-HORDE.Rank_Master = "Master" -- 30 - 100
+HORDE.Rank_Expert = "Expert"             -- 20 - 24
+HORDE.Rank_Champion = "Champion"         -- 25 - 29
+HORDE.Rank_Elite = "Elite"               -- 30 - 34
+HORDE.Rank_Veteran = "Veteran"           -- 35 - 39
+HORDE.Rank_Legend = "Legend"             -- 40 - 44
+HORDE.Rank_Master = "Master"             -- 45 - 100
 HORDE.player_ranks = {}
 HORDE.player_exps = {}
 HORDE.max_level = 100
 
 HORDE.Rank_Colors = {
-    [HORDE.Rank_Novice] = color_white,
-    [HORDE.Rank_Amateur] = Color(50,205,50),
-    [HORDE.Rank_Skilled] = Color(135,206,235),
-    [HORDE.Rank_Professional] = Color(220,0,220),
-    [HORDE.Rank_Expert] = Color(255,69,0),
-    [HORDE.Rank_Champion] = Color(255,215,0),
-    [HORDE.Rank_Master] = HORDE.color_crimson
+    [HORDE.Rank_Novice]       = color_white,
+    [HORDE.Rank_Amateur]      = Color(50, 205, 50),
+    [HORDE.Rank_Skilled]      = Color(135, 206, 235),
+    [HORDE.Rank_Professional] = Color(220, 0, 220),
+    [HORDE.Rank_Expert]       = Color(255, 69, 0),
+    [HORDE.Rank_Champion]     = Color(255, 215, 0),
+    [HORDE.Rank_Elite]        = Color(0, 210, 210),
+    [HORDE.Rank_Veteran]      = Color(255, 140, 0),
+    [HORDE.Rank_Legend]       = Color(180, 100, 255),
+    [HORDE.Rank_Master]       = HORDE.color_crimson
+}
+
+-- XP multiplier per difficulty index (1 = Normal .. 6 = Malice)
+HORDE.difficulty_xp_multiplier = { 1.0, 1.05, 1.12, 1.20, 1.28, 1.40 }
+
+-- Difficulty display colors used by the in-game difficulty menu
+HORDE.difficulty_colors = {
+    Color(200, 200, 200), -- NORMAL
+    Color(50,  205, 50),  -- HARD
+    Color(135, 206, 235), -- REALISM
+    Color(180, 100, 255), -- NIGHTMARE
+    Color(255, 140, 0),   -- APOCALYPSE
+    Color(220, 20,  60),  -- MALICE
 }
 
 function HORDE:ScrubSteamID(ply)
@@ -117,7 +136,7 @@ function HORDE:GetExpToNextLevel(level)
 end
 
 function HORDE:LevelToRank(level)
-    if level < 30 then
+    if level < 45 then
         local rank = HORDE.Rank_Novice
         if level < 5 then
         elseif level < 10 then
@@ -130,10 +149,16 @@ function HORDE:LevelToRank(level)
             rank = HORDE.Rank_Expert
         elseif level < 30 then
             rank = HORDE.Rank_Champion
+        elseif level < 35 then
+            rank = HORDE.Rank_Elite
+        elseif level < 40 then
+            rank = HORDE.Rank_Veteran
+        elseif level < 45 then
+            rank = HORDE.Rank_Legend
         end
         return rank, level % 5
     else
-        return HORDE.Rank_Master, level - 30
+        return HORDE.Rank_Master, level - 45
     end
 end
 

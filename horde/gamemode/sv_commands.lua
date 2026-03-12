@@ -342,6 +342,18 @@ concommand.Add("horde_stats", function (ply, cmd, args)
     HORDE:StatsMenu(ply)
 end)
 
+concommand.Add("horde_difficulty_menu", function (ply, cmd, args)
+    net.Start("Horde_ToggleDifficulty")
+    net.Send(ply)
+end)
+
+-- Waveset selector menu (opens client-side panel).
+util.AddNetworkString("Horde_ToggleWaveset")
+concommand.Add("horde_waveset_menu", function (ply, cmd, args)
+    net.Start("Horde_ToggleWaveset")
+    net.Send(ply)
+end)
+
 concommand.Add("horde_testing_gorlami", function (ply, cmd, args)
     if GetConVar("horde_enable_sandbox"):GetInt() == 0 then
         HORDE:SendNotificationSandboxOnly(ply)

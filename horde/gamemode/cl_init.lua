@@ -47,6 +47,8 @@ include("gui/cl_subclassbutton.lua")
 include("gui/cl_perkbutton.lua")
 include("gui/cl_leaderboard.lua")
 include("gui/cl_arccwcustomize.lua")
+include("gui/cl_difficulty.lua")
+include("gui/cl_waveset.lua")
 
 include("status/sh_mind.lua")
 include("gui/scoreboard/dpingmeter.lua")
@@ -232,6 +234,20 @@ function HORDE:ToggleConfigMenu()
     end
 end
 
+function HORDE:ToggleDifficulty()
+    if HORDE.DifficultyGUI and HORDE.DifficultyGUI:IsValid() then
+        if HORDE.DifficultyGUI:IsVisible() then
+            HORDE.DifficultyGUI:Hide()
+            gui.EnableScreenClicker(false)
+            return
+        end
+        HORDE.DifficultyGUI:Remove()
+    end
+    HORDE.DifficultyGUI = vgui.Create("HordeDifficultyMenu")
+    HORDE.DifficultyGUI:Show()
+    gui.EnableScreenClicker(true)
+end
+
 -- Entity Highlights
 HORDE.Player_Looking_At_Minion = nil
 if GetConVarNumber("horde_enable_halo") == 1 then
@@ -401,6 +417,10 @@ net.Receive("Horde_ToggleConfigMenu", function ()
     HORDE:ToggleConfigMenu()
 end)
 
+net.Receive("Horde_ToggleDifficulty", function ()
+    HORDE:ToggleDifficulty()
+end)
+
 net.Receive("Horde_ToggleStats", function ()
     HORDE:ToggleStats()
 end)
@@ -467,7 +487,7 @@ net.Receive("Horde_SyncEnemies", function ()
 end)
 
 net.Receive("Horde_SyncDifficulty", function ()
-    HORDE.difficulty = net.ReadUInt(3)
+    HORDE.difficulty = net.ReadUInt(4)
 end)
 
 net.Receive("Horde_SyncMaps", function ()
@@ -524,3 +544,155 @@ killicon.Add("arccw_nade_medic", "arccw/weaponicons/arccw_nade_medic", Color(0, 
 killicon.Add("npc_turret_floor", "vgui/hud/npc_turret_floor", Color(0, 0, 0, 255))
 killicon.AddAlias("npc_vj_horde_shotgun_turret", "npc_turret_floor")
 killicon.AddAlias("npc_vj_horde_sniper_turret", "npc_turret_floor")
+
+-- =============================================================================
+-- XENO FOG
+-- Dense green atmospheric fog that rolls in at wave 10 of the Xeno waveset.
+-- Uses CalcView to set engine-level fog parameters.
+-- =============================================================================
+local xeno_fog_active  = false
+local xeno_fog_opacity = 0       -- 0..1, lerped in over time
+local xeno_fog_target  = 0       -- target opacity (0 = off, 1 = full)
+
+net.Receive("Horde_XenoFogStart", function()
+    xeno_fog_active = true
+    xeno_fog_target = 1
+end)
+
+net.Receive("Horde_XenoFogEnd", function()
+    xeno_fog_target = 0
+    -- Hook stays alive to lerp out; it removes itself once opacity reaches 0.
+end)
+
+hook.Add("CalcView", "Horde_XenoFog", function(ply, origin, angles, fov, znear, zfar)
+    if not xeno_fog_active then return end
+
+    -- Smoothly lerp opacity toward the target each frame.
+    local dt = FrameTime()
+    xeno_fog_opacity = math.Clamp(xeno_fog_opacity + (xeno_fog_target - xeno_fog_opacity) * dt * 0.8, 0, 1)
+
+    -- Once fully faded out, deactivate entirely.
+    if xeno_fog_target == 0 and xeno_fog_opacity < 0.005 then
+        xeno_fog_active  = false
+        xeno_fog_opacity = 0
+        return
+    end
+
+    local view = {}
+    view.origin   = origin
+    view.angles   = angles
+    view.fov      = fov
+    view.znear    = znear
+    view.zfar     = zfar
+
+    -- Dense green fog that closes in hard from 80 to 900 units.
+    view.fogenable     = true
+    view.fogcolor      = Color(20, 160, 50)
+    view.fogstart      = 80
+    view.fogend        = 900
+    view.fogmaxdensity = 0.92 * xeno_fog_opacity
+
+    return view
+end)
+
+-- =============================================================================
+-- XENO ADAPTATION HUD
+-- Displays the current enemy damage-type adaptation resistances when any
+-- resistance is non-zero and the XENO waveset is active.
+-- =============================================================================
+local XENO_HUD_ORDER = {
+    HORDE.DMG_COLD,
+    HORDE.DMG_LIGHTNING,
+    HORDE.DMG_FIRE,
+    HORDE.DMG_POISON,
+    HORDE.DMG_BLAST,
+    HORDE.DMG_BALLISTIC,
+    HORDE.DMG_SLASH,
+    HORDE.DMG_BLUNT,
+    HORDE.DMG_PHYSICAL,
+}
+
+local ADAPT_LABEL = {
+    [HORDE.DMG_COLD]      = "Frost",
+    [HORDE.DMG_LIGHTNING] = "Shock",
+    [HORDE.DMG_FIRE]      = "Fire",
+    [HORDE.DMG_POISON]    = "Poison",
+    [HORDE.DMG_BLAST]     = "Blast",
+    [HORDE.DMG_BALLISTIC] = "Ballistic",
+    [HORDE.DMG_SLASH]     = "Slash",
+    [HORDE.DMG_BLUNT]     = "Blunt",
+    [HORDE.DMG_PHYSICAL]  = "Physical",
+}
+
+local ADAPT_COLOR = {
+    [HORDE.DMG_COLD]      = Color(100, 220, 255),
+    [HORDE.DMG_LIGHTNING] = Color(255, 230, 50),
+    [HORDE.DMG_FIRE]      = Color(255, 100, 40),
+    [HORDE.DMG_POISON]    = Color(180, 80, 220),
+    [HORDE.DMG_BLAST]     = Color(255, 160, 40),
+    [HORDE.DMG_BALLISTIC] = Color(200, 200, 200),
+    [HORDE.DMG_SLASH]     = Color(200, 200, 200),
+    [HORDE.DMG_BLUNT]     = Color(200, 200, 200),
+    [HORDE.DMG_PHYSICAL]  = Color(200, 200, 200),
+}
+
+hook.Add("HUDPaint", "Horde_XenoAdaptationHUD", function()
+    if not HORDE.xeno_adaptation then return end
+    if HORDE.waveset ~= "xeno" then return end
+
+    -- Collect adapted types.
+    local active = {}
+    for _, dmg_type in ipairs(XENO_HUD_ORDER) do
+        local resist = HORDE.xeno_adaptation[dmg_type]
+        if resist and resist > 0 then
+            table.insert(active, { dmg_type = dmg_type, resist = resist })
+        end
+    end
+    if #active == 0 then return end
+
+    -- Layout
+    local sw, sh = ScrW(), ScrH()
+    local row_h   = ScreenScale(12)
+    local padding = ScreenScale(5)
+    local bar_w   = ScreenScale(60)
+    local label_w = ScreenScale(48)
+    local total_h = padding * 2 + #active * (row_h + ScreenScale(2)) + ScreenScale(14)
+    local total_w = label_w + bar_w + padding * 3
+    local x = sw - total_w - ScreenScale(8)
+    local y = sh * 0.35
+
+    -- Background
+    draw.RoundedBox(4, x - padding, y - padding, total_w + padding * 2, total_h, Color(10, 10, 10, 180))
+
+    -- Title
+    draw.SimpleText("XENO ADAPTATION", "Horde_Ready", x + total_w * 0.5, y, Color(60, 220, 80), TEXT_ALIGN_CENTER)
+    y = y + ScreenScale(14)
+
+    for _, entry in ipairs(active) do
+        local dt    = entry.dmg_type
+        local pct   = math.floor(entry.resist * 100 + 0.5)
+        local frac  = entry.resist / 0.36  -- progress toward cap
+        local col   = ADAPT_COLOR[dt] or Color(200, 200, 200)
+        local lbl   = ADAPT_LABEL[dt] or "???"
+
+        -- Label
+        draw.SimpleText(lbl, "Horde_Ready", x, y + row_h * 0.5, col, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+        -- Bar background
+        local bx = x + label_w
+        draw.RoundedBox(2, bx, y, bar_w, row_h, Color(30, 30, 30, 200))
+
+        -- Bar fill  (goes red as it nears cap)
+        local fill_col = Color(
+            Lerp(frac, col.r * 0.6, 220),
+            Lerp(frac, col.g * 0.6, 30),
+            Lerp(frac, col.b * 0.6, 30)
+        )
+        draw.RoundedBox(2, bx, y, math.max(2, bar_w * frac), row_h, fill_col)
+
+        -- Percentage text
+        draw.SimpleText(pct .. "%", "Horde_Ready", bx + bar_w + ScreenScale(3), y + row_h * 0.5, col, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+        y = y + row_h + ScreenScale(2)
+    end
+end)

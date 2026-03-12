@@ -94,8 +94,8 @@ HORDE.color_config_content_bg = Color(230,230,230)
 HORDE.color_none = Color(0,0,0,0)
 HORDE.color_config_btn = Color(40,40,40)
 HORDE.start_game = false
-HORDE.total_enemies_per_wave = {15, 19, 23, 27, 30, 33, 36, 39, 42, 45}
---HORDE.total_enemies_per_wave = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+HORDE.total_enemies_per_wave = {15, 19, 23, 27, 30, 33, 36, 39, 42, 45, 48, 50}
+--HORDE.total_enemies_per_wave = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 -- Director
 HORDE.difficulty = 1
@@ -117,8 +117,8 @@ HORDE.enemy_spawn_z = 6
 HORDE.min_base_enemy_spawns_per_think = 4
 HORDE.max_base_enemy_spawns_per_think = 5
 HORDE.spawn_radius = 75
-HORDE.max_max_waves = 10
-HORDE.max_waves = math.min(HORDE.max_max_waves, math.max(1, GetConVarNumber("horde_max_wave")))
+HORDE.max_max_waves = 12
+HORDE.max_waves = math.min(10, math.max(1, GetConVarNumber("horde_max_wave"))) -- default 10; xeno override sets 12
 HORDE.start_money = math.max(0, GetConVarNumber("horde_start_money"))
 HORDE.total_enemies_this_wave_fixed = 0
 HORDE.kill_reward_base = 90
@@ -156,7 +156,7 @@ HORDE.player_kills_weapon = {}
 HORDE.render_highlight_disable = 0
 HORDE.render_highlight_enemies = 1
 HORDE.render_highlight_ammoboxes = 2
-HORDE.difficulty_text = {"NORMAL", "HARD", "REALISM", "NIGHTMARE", "APOCALYPSE"}
+HORDE.difficulty_text = {"NORMAL", "HARD", "REALISM", "NIGHTMARE", "APOCALYPSE", "MALICE"}
 
 -- ArcCW Attachments
 if ArcCWInstalled then

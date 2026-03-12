@@ -147,8 +147,10 @@ if GetConVar("horde_enable_sandbox"):GetInt() == 0 and GetConVar("horde_enable_r
 		if killer:IsPlayer() and killer:IsValid() and killer:Horde_GetClass() then
 			local class_name = killer:Horde_GetCurrentSubclass()
 			if killer:Horde_GetLevel(class_name) >= HORDE.max_level then return end
+			local xp_mult = HORDE.difficulty_xp_multiplier[HORDE.difficulty] or 1.0
 			if victim:Horde_IsElite() then
-				killer:Horde_SetExp(class_name, killer:Horde_GetExp(class_name) + 2)
+				local xp = math.floor(2 * xp_mult)
+				killer:Horde_SetExp(class_name, killer:Horde_GetExp(class_name) + xp)
 				local p = math.random()
 				if p < 0.01 or (p < 0.1 and killer:Horde_GetGadget() == "gadget_corporate_mindset") then
 					-- Drop a skull token
@@ -162,7 +164,8 @@ if GetConVar("horde_enable_sandbox"):GetInt() == 0 and GetConVar("horde_enable_r
 					ent:Spawn()
 				end
 			else
-				killer:Horde_SetExp(class_name, killer:Horde_GetExp(class_name) + 1)
+				local xp = math.max(1, math.floor(1 * xp_mult))
+				killer:Horde_SetExp(class_name, killer:Horde_GetExp(class_name) + xp)
 				HORDE:SaveRank(killer)
 			end
 		end

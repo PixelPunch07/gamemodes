@@ -4,6 +4,9 @@ HORDE.bosses = {}
 HORDE.enemies_normalized = {}
 HORDE.bosses_normalized = {}
 
+-- Active waveset: "default" or "xeno". Synced to clients via Horde_WavesetChanged.
+HORDE.waveset = "default"
+
 -- Creates a Horde enemy.
 function HORDE:CreateEnemy(name, class, weight, wave, is_elite, health_scale, damage_scale, reward_scale, model_scale, color, weapon, spawn_limit, boss_properties, mutation, skin, model, spawn_min, gadget_drop)
     if name == nil or class == nil or wave == nil or wave <= 0 or name == "" or class == "" then return end
@@ -229,8 +232,6 @@ function HORDE:GetDefaultEnemiesData ()
     HORDE:CreateEnemy("Screecher","npc_vj_horde_screecher",                 0.15,  5, true, 1, 1, 1.25, 1)
     HORDE:CreateEnemy("Mutated Hulk",  "npc_vj_mutated_hulk",       1, 5, true,  1, 1, 10, 1, nil, nil, nil,
     {is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=1.0, music="music/hl2_song20_submix0.mp3", music_duration=104}, nil, nil, nil, nil, {gadget="gadget_unstable_injection", drop_rate=0.5})
-    --HORDE:CreateEnemy("Subject: Grigori","npc_vj_horde_grigori",    1, 5, true,  1, 1, 10, 1, nil, nil, nil,
-    --{is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=0.75, music="music/hl2_song19.mp3", music_duration=115}, "none")
     HORDE:CreateEnemy("Plague Berserker","npc_vj_horde_platoon_berserker",    0.35, 5, true,  1, 1, 10, 1, nil, nil, nil,
     {is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=0.75, music="music/hl2_song19.mp3", music_duration=115})
     HORDE:CreateEnemy("Plague Heavy","npc_vj_horde_platoon_heavy",    0.35, 5, true,  1, 1, 10, 1, nil, nil, nil,
@@ -323,15 +324,227 @@ function HORDE:GetDefaultEnemiesData ()
     {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song21.mp3", music_duration=84}, "regenerator")
     HORDE:CreateEnemy("Plague Platoon","npc_vj_horde_plague_platoon",     1,    10, true,  1, 1, 10, 1, nil, nil, nil,
     {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song24.mp3", music_duration=84}, "none")
-    
+    HORDE:CreateEnemy("Calmaticus",   "npc_vj_horde_xeno_calmaticus",    1,    10, true,  1, 1, 10, 1, nil, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="zombiesurvival/xeno_raid/genesis_of_the_virus.mp3", music_duration=185}, "none")
+
     HORDE:NormalizeEnemiesWeight()
 
     print("[HORDE] - Loaded default enemy config.")
 end
 
+-- =============================================================================
+-- XENO WAVESET
+-- All enemies replaced with xeno variants where available.
+-- Enemies without a dedicated xeno NPC keep their original class but are tinted
+-- green (Color(50, 220, 80)) so they are visually distinct.
+-- =============================================================================
+local XENO_GREEN = Color(50, 220, 80)
+
+function HORDE:GetXenoEnemiesData()
+    -- Wave 1
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  1, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.85,  1, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Headcrab Zombie Torso","npc_zombie_torso",                  0.30,  1, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Zombie Torso",         "npc_vj_zss_crabless_torso",         0.30,  1, false, 0.5, 1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.25,  1, true,  1,   1,   1.25, 1, XENO_GREEN)
+
+    -- Wave 2
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  2, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80,  2, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40,  2, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Fast Zombie",          "npc_fastzombie",                    0.20,  2, false, 0.75,1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.20,  2, true,  1,   1,   1.25, 1, XENO_GREEN)
+
+    -- Wave 3
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  3, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80,  3, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40,  3, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Fast Zombie",          "npc_fastzombie",                    0.20,  3, false, 0.75,1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Poison Zombie",        "npc_poisonzombie",                  0.20,  3, false, 1,   1,   1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.20,  3, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Vomitter",             "npc_vj_horde_xeno_vomitter",        0.15,  3, true,  1,   1,   1.25, 1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+
+    -- Wave 4
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  4, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80,  4, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40,  4, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Fast Zombie",          "npc_fastzombie",                    0.20,  4, false, 0.75,1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Poison Zombie",        "npc_poisonzombie",                  0.20,  4, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.20,  4, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Vomitter",             "npc_vj_horde_xeno_vomitter",        0.15,  4, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Screecher",            "npc_vj_horde_xeno_screecher",       0.15,  4, true,  1,   1,   1.25, 1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+
+    -- Wave 5
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  5, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80,  5, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40,  5, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Fast Zombie",          "npc_fastzombie",                    0.20,  5, false, 0.75,1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Poison Zombie",        "npc_poisonzombie",                  0.20,  5, false, 1,   1.1, 1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Zombine",              "npc_vj_horde_xeno_zombine",         0.15,  5, false, 1,   1.1, 1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.20,  5, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Vomitter",             "npc_vj_horde_xeno_vomitter",        0.15,  5, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Screecher",            "npc_vj_horde_xeno_screecher",       0.15,  5, true,  1,   1,   1.25, 1, XENO_GREEN)
+    -- Wave 5 bosses (xeno variants where available, green tint on all)
+    HORDE:CreateEnemy("Mutated Hulk",         "npc_vj_horde_xeno_mutated_hulk",    1,     5, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=1.0, music="music/hl2_song20_submix0.mp3", music_duration=104}, nil, nil, nil, nil, {gadget="gadget_unstable_injection", drop_rate=0.5})
+    HORDE:CreateEnemy("Plague Berserker",     "npc_vj_horde_platoon_berserker",    0.35,  5, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=0.75, music="music/hl2_song19.mp3", music_duration=115})
+    HORDE:CreateEnemy("Plague Heavy",         "npc_vj_horde_platoon_heavy",        0.35,  5, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=0.75, music="music/hl2_song3.mp3", music_duration=91})
+    HORDE:CreateEnemy("Plague Demolition",    "npc_vj_horde_platoon_demolitionist",0.35,  5, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=0.75, music="music/hl2_song19.mp3", music_duration=115})
+    HORDE:CreateEnemy("Hell Knight",          "npc_vj_horde_hellknight",           1,     5, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=0.5, music="music/hl2_song3.mp3", music_duration=91}, "none", nil, nil, nil, {gadget="gadget_hellfire_tincture", drop_rate=0.5})
+    HORDE:CreateEnemy("Xen Host Unit",        "npc_vj_horde_xen_host_unit",        1,     5, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=false, enemies_spawn_threshold=0.5, music="music/hl2_song20_submix0.mp3", music_duration=104}, "none", nil, nil, nil, {gadget="gadget_matriarch_womb", drop_rate=0.5})
+
+    -- Wave 6
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  6, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80,  6, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40,  6, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Fast Zombie",          "npc_fastzombie",                    0.20,  6, false, 0.75,1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Poison Zombie",        "npc_poisonzombie",                  0.20,  6, false, 1,   1,   1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Zombine",              "npc_vj_horde_xeno_zombine",         0.10,  6, false, 1,   1,   1.1,  1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Charred Zombine",      "npc_vj_horde_xeno_charred_zombine", 0.05,  6, false, 1,   1,   1.1,  1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.20,  6, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Vomitter",             "npc_vj_horde_xeno_vomitter",        0.10,  6, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Scorcher",             "npc_vj_horde_scorcher",             0.05,  6, true,  1,   1,   1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Screecher",            "npc_vj_horde_xeno_screecher",       0.15,  6, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Hulk",                 "npc_vj_horde_xeno_hulk",            0.05,  6, true,  1,   1,   2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+
+    -- Wave 7
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  7, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80,  7, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40,  7, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Fast Zombie",          "npc_fastzombie",                    0.20,  7, false, 0.75,1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Poison Zombie",        "npc_poisonzombie",                  0.15,  7, false, 1,   1,   1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Zombine",              "npc_vj_horde_xeno_zombine",         0.08,  7, false, 1,   1,   1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Charred Zombine",      "npc_vj_horde_xeno_charred_zombine", 0.06,  7, false, 1,   1,   1.1,  1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Plague Soldier",       "npc_vj_horde_xeno_plague_soldier",  0.05,  7, false, 1,   1,   1.25, 1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.15,  7, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Blight",               "npc_vj_horde_xeno_blight",          0.05,  7, true,  1,   1,   1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Vomitter",             "npc_vj_horde_xeno_vomitter",        0.10,  7, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Scorcher",             "npc_vj_horde_scorcher",             0.05,  7, true,  1,   1,   1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Screecher",            "npc_vj_horde_xeno_screecher",       0.15,  7, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Hulk",                 "npc_vj_horde_xeno_hulk",            0.04,  7, true,  1,   1,   2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Lesion",               "npc_vj_horde_xeno_lesion",          0.03,  7, true,  1,   1,   2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+
+    -- Wave 8
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  8, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80,  8, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40,  8, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Fast Zombie",          "npc_fastzombie",                    0.20,  8, false, 0.75,1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Poison Zombie",        "npc_poisonzombie",                  0.15,  8, false, 1,   1,   1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Zombine",              "npc_vj_horde_xeno_zombine",         0.08,  8, false, 1,   1,   1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Charred Zombine",      "npc_vj_horde_xeno_charred_zombine", 0.06,  8, false, 1,   1,   1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Plague Soldier",       "npc_vj_horde_xeno_plague_soldier",  0.05,  8, false, 1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.15,  8, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Blight",               "npc_vj_horde_xeno_blight",          0.05,  8, true,  1,   1,   1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Vomitter",             "npc_vj_horde_xeno_vomitter",        0.10,  8, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Scorcher",             "npc_vj_horde_scorcher",             0.05,  8, true,  1,   1,   1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Screecher",            "npc_vj_horde_xeno_screecher",       0.10,  8, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Weeper",               "npc_vj_horde_xeno_weeper",          0.05,  8, true,  1,   1,   1.5,  1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Hulk",                 "npc_vj_horde_xeno_hulk",            0.04,  8, true,  1,   1,   2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Yeti",                 "npc_vj_horde_yeti",                 0.02,  8, true,  1,   1,   3,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Lesion",               "npc_vj_horde_xeno_lesion",          0.03,  8, true,  1,   1,   2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+
+    -- Wave 9
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00,  9, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80,  9, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40,  9, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Fast Zombie",          "npc_fastzombie",                    0.20,  9, false, 0.75,1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Poison Zombie",        "npc_poisonzombie",                  0.15,  9, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Zombine",              "npc_vj_horde_xeno_zombine",         0.08,  9, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Charred Zombine",      "npc_vj_horde_xeno_charred_zombine", 0.06,  9, false, 1,   1,   1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Plague Soldier",       "npc_vj_horde_xeno_plague_soldier",  0.05,  9, false, 1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.15,  9, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Blight",               "npc_vj_horde_xeno_blight",          0.05,  9, true,  1,   1,   1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Vomitter",             "npc_vj_horde_xeno_vomitter",        0.10,  9, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Scorcher",             "npc_vj_horde_scorcher",             0.05,  9, true,  1,   1,   1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Screecher",            "npc_vj_horde_xeno_screecher",       0.10,  9, true,  1,   1,   1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Weeper",               "npc_vj_horde_xeno_weeper",          0.05,  9, true,  1,   1,   1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Hulk",                 "npc_vj_horde_xeno_hulk",            0.03,  9, true,  1,   1,   2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Yeti",                 "npc_vj_horde_yeti",                 0.02,  9, true,  1,   1,   3,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Lesion",               "npc_vj_horde_xeno_lesion",          0.02,  9, true,  1,   1,   2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Plague Elite",         "npc_vj_horde_xeno_plague_elite",    0.015, 9, true,  1,   1,   3,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+
+    -- Wave 10
+    HORDE:CreateEnemy("zombie vj",            "npc_vj_zss_crabless_slow",          1,    10, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("zombie fast",          "npc_fastzombie",                    1,    10, false, 1,   1,   1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("zombie poison",        "npc_poisonzombie",                  0.5,  10, false, 1,   1,   1,    1, XENO_GREEN)
+    -- Wave 10 bosses
+    HORDE:CreateEnemy("Alpha Gonome",         "npc_vj_horde_xeno_alpha_gonome",    1,    10, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song24.mp3", music_duration=77}, "fume")
+    HORDE:CreateEnemy("Gamma Gonome",         "npc_vj_horde_xeno_gamma_gonome",    1,    10, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song15.mp3", music_duration=120}, "none")
+    HORDE:CreateEnemy("Subject: Wallace Breen","npc_vj_horde_breen",               1,    10, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song21.mp3", music_duration=84}, "decay")
+    HORDE:CreateEnemy("Xen Destroyer Unit",   "npc_vj_horde_xen_destroyer_unit",   1,    10, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song15.mp3", music_duration=120}, "none")
+    HORDE:CreateEnemy("Xen Psychic Unit",     "npc_vj_horde_xen_psychic_unit",     1,    10, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song21.mp3", music_duration=84}, "regenerator")
+    HORDE:CreateEnemy("Plague Platoon",       "npc_vj_horde_xeno_plague_platoon",  1,    10, true,  1,   1,   10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song24.mp3", music_duration=84}, "none")
+
+    -- Wave 11 — deepening xeno infestation, heavy elite pressure
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00, 11, false, 1,    1,    1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80, 11, false, 1,    1,    1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Crawler",              "npc_vj_horde_xeno_crawler",         0.40, 11, false, 1,    1,    1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Zombine",              "npc_vj_horde_xeno_zombine",         0.10, 11, false, 1,    1,    1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Charred Zombine",      "npc_vj_horde_xeno_charred_zombine", 0.08, 11, false, 1,    1,    1.1,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Plague Soldier",       "npc_vj_horde_xeno_plague_soldier",  0.07, 11, false, 1,    1.1,  1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Exploder",             "npc_vj_horde_xeno_exploder",        0.15, 11, true,  1,    1,    1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Blight",               "npc_vj_horde_xeno_blight",          0.07, 11, true,  1,    1,    1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Vomitter",             "npc_vj_horde_xeno_vomitter",        0.10, 11, true,  1,    1,    1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Scorcher",             "npc_vj_horde_scorcher",             0.06, 11, true,  1,    1,    1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Screecher",            "npc_vj_horde_xeno_screecher",       0.10, 11, true,  1,    1,    1.25, 1, XENO_GREEN)
+    HORDE:CreateEnemy("Weeper",               "npc_vj_horde_xeno_weeper",          0.07, 11, true,  1,    1,    1.5,  1, XENO_GREEN)
+    HORDE:CreateEnemy("Hulk",                 "npc_vj_horde_xeno_hulk",            0.05, 11, true,  1,    1,    2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Lesion",               "npc_vj_horde_xeno_lesion",          0.04, 11, true,  1,    1,    2,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Plague Elite",         "npc_vj_horde_xeno_plague_elite",    0.03, 11, true,  1,    1.1,  3,    1, XENO_GREEN, nil, nil, nil, nil, nil, nil, 1)
+
+    -- Wave 12 — FINAL WAVE. Calmaticus is the sole boss.
+    -- A thin xeno vanguard fills the field while the Heart of the Virus approaches.
+    HORDE:CreateEnemy("Walker",               "npc_vj_horde_xeno_walker",          1.00, 12, false, 1.2,  1.1,  1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Sprinter",             "npc_vj_horde_xeno_sprinter",        0.80, 12, false, 1.2,  1.1,  1,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Hulk",                 "npc_vj_horde_xeno_hulk",            0.08, 12, false, 1.2,  1.1,  2,    1, XENO_GREEN)
+    HORDE:CreateEnemy("Plague Elite",         "npc_vj_horde_xeno_plague_elite",    0.05, 12, false, 1.2,  1.1,  3,    1, XENO_GREEN)
+    -- The Heart of the Xeno Virus
+    HORDE:CreateEnemy("Calmaticus",           "npc_vj_horde_xeno_calmaticus",      1,    12, true,  1,    1,    10,   1, XENO_GREEN, nil, nil,
+    {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="zombiesurvival/xeno_raid/genesis_of_the_virus.mp3", music_duration=185}, "none")
+
+    HORDE:NormalizeEnemiesWeight()
+
+    print("[HORDE] - Loaded xeno enemy config.")
+end
+
+-- Helper: resets the enemy tables and reloads based on the current waveset string.
+-- Call this server-side whenever HORDE.waveset changes.
+local function ReloadEnemiesByWaveset(waveset)
+    HORDE.enemies = {}
+    HORDE.bosses = {}
+    HORDE.enemies_normalized = {}
+    HORDE.bosses_normalized = {}
+
+    if waveset == "xeno" then
+        HORDE.max_waves = 12
+        HORDE:GetXenoEnemiesData()
+    else
+        -- Respect horde_max_wave convar but cap at 10 for default
+        HORDE.max_waves = math.min(10, math.max(1, GetConVarNumber("horde_max_wave")))
+        HORDE:GetDefaultEnemiesData()
+    end
+
+    HORDE.InvalidateHordeEnemyCache = 1
+end
+
 -- Startup
 if SERVER then
     util.AddNetworkString("Horde_SetEnemiesData")
+    util.AddNetworkString("Horde_SetWaveset")
+    util.AddNetworkString("Horde_WavesetChanged")
+    util.AddNetworkString("Horde_XenoFogStart")
+    util.AddNetworkString("Horde_XenoFogEnd")
 
     if GetConVar("horde_external_lua_config"):GetString() and GetConVar("horde_external_lua_config"):GetString() ~= "" then
     else
@@ -342,6 +555,7 @@ if SERVER then
         end
     end
 
+    -- Manual enemy data push from Enemy Config editor (existing behavior).
     net.Receive("Horde_SetEnemiesData", function (len, ply)
         if not ply:IsSuperAdmin() then return end
         local enemies_len = net.ReadUInt(32)
@@ -351,4 +565,176 @@ if SERVER then
         HORDE.InvalidateHordeEnemyCache = 1
         HORDE:SetEnemiesData()
     end)
+
+    -- Waveset selection request from any admin.
+    net.Receive("Horde_SetWaveset", function(len, ply)
+        if not ply:IsAdmin() then return end
+
+        local requested = net.ReadString()
+        if requested ~= "default" and requested ~= "xeno" then return end
+
+        -- XENO waveset requires at least one class/subclass at Amateur rank (level ≥ 5).
+        if requested == "xeno" and not HORDE:PlayerCanVoteXeno(ply) then
+            -- Reject silently; client UI should have blocked this.
+            return
+        end
+
+        local previous = HORDE.waveset
+        HORDE.waveset = requested
+        ReloadEnemiesByWaveset(requested)
+
+        -- If switching away from xeno, clear the fog on all clients.
+        if previous == "xeno" and requested ~= "xeno" then
+            net.Start("Horde_XenoFogEnd")
+            net.Broadcast()
+        end
+
+        -- Broadcast the new waveset to all clients so their UI stays in sync.
+        net.Start("Horde_WavesetChanged")
+            net.WriteString(requested)
+        net.Broadcast()
+
+        HORDE:SendNotification("Waveset changed to: " .. requested, 0)
+        print("[HORDE] - Waveset changed to: " .. requested .. " by " .. ply:Nick())
+        hook.Run("Horde_WavesetChanged_Server", requested)
+    end)
+
+    -- On wave 10 start in xeno mode: dense fog + ominous chat message.
+    hook.Add("HordeWaveStart", "Horde_XenoWave10Events", function(wave)
+        if HORDE.waveset ~= "xeno" then return end
+        if wave ~= 10 then return end
+
+        -- Trigger dense green fog on all clients.
+        net.Start("Horde_XenoFogStart")
+        net.Broadcast()
+
+        -- Broadcast the ominous chat message to all players.
+        for _, ply in pairs(player.GetAll()) do
+            ply:PrintMessage(HUD_PRINTTALK, "The Heart of the Xeno Virus approaches sinisterly.")
+        end
+    end)
+end
+
+-- Clients receive waveset changes and update HORDE.waveset for UI.
+if CLIENT then
+    net.Receive("Horde_WavesetChanged", function()
+        HORDE.waveset = net.ReadString()
+    end)
+end
+
+-- =============================================================================
+-- XENO WAVESET: ENEMY ADAPTATION SYSTEM
+-- Enemies collectively adapt to damage types over the course of a Xeno run.
+-- Each enemy kill increases resistance to the damage type that last hit it.
+-- Resistance per kill: +0.09% | Cap: 36% per type | Applies to ALL enemy types
+-- =============================================================================
+
+-- Global adaptation table: keyed by HORDE.DMG_* int → resistance (0.0 – 0.36)
+HORDE.xeno_adaptation = {}
+
+-- Reset adaptation whenever the waveset changes or a new game begins.
+local function ResetXenoAdaptation()
+    HORDE.xeno_adaptation = {}
+end
+
+if SERVER then
+    util.AddNetworkString("Horde_XenoAdaptationSync")
+    util.AddNetworkString("Horde_XenoAdaptationReset")
+
+    -- Broadcast the full adaptation table to all clients.
+    local function SyncAdaptationToClients()
+        -- Pack non-zero entries only (saves net bandwidth).
+        local packed = {}
+        for dmg_type, resist in pairs(HORDE.xeno_adaptation) do
+            if resist > 0 then
+                packed[tostring(dmg_type)] = resist
+            end
+        end
+        net.Start("Horde_XenoAdaptationSync")
+            net.WriteTable(packed)
+        net.Broadcast()
+    end
+
+    -- Reset adaptation when waveset changes away from xeno, or map restarts.
+    hook.Add("Horde_WavesetChanged_Server", "Horde_ResetAdaptationOnWavesetChange", function(new_waveset)
+        if new_waveset ~= "xeno" then
+            ResetXenoAdaptation()
+            net.Start("Horde_XenoAdaptationReset")
+            net.Broadcast()
+        end
+    end)
+
+    hook.Add("InitPostEntity", "Horde_ResetAdaptationOnLoad", function()
+        ResetXenoAdaptation()
+    end)
+
+    -- Core adaptation hook: fires when a player kills a Xeno-waveset enemy.
+    hook.Add("Horde_OnEnemyKilled", "Horde_XenoAdaptation", function(victim, killer, weapon)
+        if HORDE.waveset ~= "xeno" then return end
+        if not IsValid(victim) then return end
+
+        -- Read the damage type that last struck this enemy.
+        local dmg_type = victim.Horde_Last_HordeDmgType
+        if not dmg_type or dmg_type == HORDE.DMG_PURE then return end
+
+        local current = HORDE.xeno_adaptation[dmg_type] or 0
+        local new_val  = math.min(0.36, current + 0.0009)  -- +0.09% per kill, cap 36%
+
+        if new_val ~= current then
+            HORDE.xeno_adaptation[dmg_type] = new_val
+            SyncAdaptationToClients()
+        end
+    end)
+
+    -- Also reset adaptation at the start of each new game (wave 1).
+    hook.Add("HordeWaveStart", "Horde_ResetAdaptationOnWave1", function(wave)
+        if wave == 1 then
+            ResetXenoAdaptation()
+            net.Start("Horde_XenoAdaptationReset")
+            net.Broadcast()
+        end
+    end)
+end
+
+if CLIENT then
+    -- Receive full adaptation table from server.
+    net.Receive("Horde_XenoAdaptationSync", function()
+        local packed = net.ReadTable()
+        HORDE.xeno_adaptation = {}
+        for k, v in pairs(packed) do
+            HORDE.xeno_adaptation[tonumber(k)] = v
+        end
+    end)
+
+    net.Receive("Horde_XenoAdaptationReset", function()
+        HORDE.xeno_adaptation = {}
+    end)
+end
+
+-- =============================================================================
+-- SHARED: rank requirement helpers
+-- Used by both server validation and client UI.
+-- MALICE difficulty requires any class/subclass at Skilled rank (level ≥ 10).
+-- XENO waveset requires any class/subclass at Amateur rank (level ≥ 5).
+-- =============================================================================
+
+-- Returns true if the player has at least one class/subclass at or above minLevel.
+function HORDE:PlayerMeetsMinLevel(ply, minLevel)
+    if not IsValid(ply) then return false end
+    if not HORDE.subclasses then return false end
+    for subclass_name, _ in pairs(HORDE.subclasses) do
+        if ply:Horde_GetLevel(subclass_name) >= minLevel then
+            return true
+        end
+    end
+    return false
+end
+
+-- Convenience wrappers
+function HORDE:PlayerCanVoteMalice(ply)
+    return HORDE:PlayerMeetsMinLevel(ply, 10)   -- Skilled rank = level 10+
+end
+
+function HORDE:PlayerCanVoteXeno(ply)
+    return HORDE:PlayerMeetsMinLevel(ply, 5)    -- Amateur rank = level 5+
 end
