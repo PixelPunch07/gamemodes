@@ -1,0 +1,11 @@
+ENT.Type 			= "anim"
+ENT.Base 			= "base_gmodentity"
+ENT.Category		= "Barricades"
+ENT.PrintName		= "Horde Razorwire"
+ENT.Author			= "Athroniaeth, reuploaded by Castor76TheSoldier"
+ENT.Contact			= ""
+ENT.Purpose			= "keeps cunts out of your base"
+ENT.Instructions	= "Place somewhere and when players touch it, they will take damage."
+ENT.Spawnable 		= true
+ENT.AdminSpawnable 	= true
+ENT.AdminOnly 		= false
