@@ -10,7 +10,7 @@ function GM:RegisterCustomConfig(name)
             CONFIG = {}
             AddCSLuaFile("custom/" .. filename)
             include("custom/" .. filename)
-
+-- woah
             if CONFIG.name then
                 print("[HORDE] Config " .. CONFIG.name .. " found!")
             else

@@ -11,7 +11,7 @@ HORDE.Class_Engineer = "Engineer"
 HORDE.Class_Berserker = "Berserker"
 HORDE.Class_Warden = "Warden"
 HORDE.Class_Cremator = "Cremator"
--- funny test
+-- funny test again
 -- Creates a Horde class
 function HORDE:CreateClass(name, extra_description, max_hp, movespd, sprintspd, base_perk, perks, order, display_name, model, icon, subclasses)
     if name == nil or name == "" then return end
