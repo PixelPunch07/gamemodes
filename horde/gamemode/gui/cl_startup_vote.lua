@@ -1,5 +1,3 @@
-============================================
-
 local vote_open       = false
 local vote_phase      = nil        -- "difficulty" | "waveset"
 local vote_options    = {}         -- { id, label, color }
