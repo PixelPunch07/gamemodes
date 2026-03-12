@@ -49,6 +49,7 @@ include("gui/cl_leaderboard.lua")
 include("gui/cl_arccwcustomize.lua")
 include("gui/cl_difficulty.lua")
 include("gui/cl_waveset.lua")
+include("gui/cl_startup_vote.lua")
 
 include("status/sh_mind.lua")
 include("gui/scoreboard/dpingmeter.lua")

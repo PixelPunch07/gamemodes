@@ -1,7 +1,3 @@
--- Horde Waveset Menu
--- Allows admins to switch between "Default" and "Xeno" enemy wavesets.
--- Opens via: horde_waveset_menu (concommand) → server → Horde_ToggleWaveset net msg → client
--- Or directly via the Configuration Menu button.
 
 local PANEL = {}
 
@@ -16,8 +12,8 @@ local WAVESETS = {
     {
         id          = "xeno",
         label       = "XENO",
-        desc        = "The Tyrant released a strain of the T-Virus that is deadly.",
-        sub         = "The Xeno act as a hivemind. They adapt slowly to your damage.",
+        desc        = "The Tyrant released a strain of T-Virus that is fatally dangerous.",
+        sub         = "The Xeno act as a hivemind. They adapt slowly to your damage types.",
         color       = Color(50,  220, 80),
     },
 }
