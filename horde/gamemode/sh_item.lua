@@ -828,6 +828,10 @@ function HORDE:GetDefaultItemsData()
         "Simple Razorwire.\n\nSlows and damages enemies.\nTakes damage upon dealing damage.",
         { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 8 },
         "items/horde_razorwire.png", { Engineer = 5 }, nil, { HORDE.DMG_SLASH })
+	    HORDE:CreateItem("Special", "Net", "horde_net", 450, 0.75,
+        "An simple net.\n\nCauses enemies to trip doing light damage\nTakes damage upon dealing damage.",
+        { Engineer = true }, 7, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 8 },
+        "items/horde_razorwire.png", { Engineer = 5 }, nil, { HORDE.DMG_BLUNT })
     HORDE:CreateItem("Special", "Manhack", "npc_manhack", 900, 4,
         "Manhack that regenerates on death.\nManhack deals its health as damage to enemies.\nManhack dies on impact.",
         { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 3 },
