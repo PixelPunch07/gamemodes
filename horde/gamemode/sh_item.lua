@@ -820,6 +820,14 @@ function HORDE:GetDefaultItemsData()
     HORDE:CreateItem("Special", "Welder", "horde_welder", 100, 0,
         "Engineering welder.\nDamages enemies and heals minions.",
         { Engineer = true }, 50, -1, nil, nil, nil, nil, { HORDE.DMG_BLAST }, nil, { "Engineer" })
+	HORDE:CreateItem("Special", "Barricade Hammer", "weapon_horde_xdebarricade", 1000, 2,
+        "An hammer for barricades.\n\nDoubles as melee in emergencies.\nConstructing has a cost",
+        { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 8 },
+        "items/horde_hammer.png", { Engineer = 5 }, nil, { HORDE.DMG_BLUNT })
+    HORDE:CreateItem("Special", "Razor Wire", "horde_razorwire", 300, 0.25,
+        "Simple Razorwire.\n\nSlows and damages enemies.\nTakes damage upon dealing damage.",
+        { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 8 },
+        "items/horde_razorwire.png", { Engineer = 5 }, nil, { HORDE.DMG_SLASH })
     HORDE:CreateItem("Special", "Manhack", "npc_manhack", 900, 4,
         "Manhack that regenerates on death.\nManhack deals its health as damage to enemies.\nManhack dies on impact.",
         { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 3 },
@@ -836,10 +844,26 @@ function HORDE:GetDefaultItemsData()
         "Aperture Science rocket turret.\n\nShoots mini-missiles that deal Blast damage.\nCovers all angles.",
         { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 3 },
         "items/rocket_turret.png", nil, nil, { HORDE.DMG_BLAST })
+	HORDE:CreateItem("Special", "Gas Rocket Turret", "npc_vj_horde_gas_launcher", 3000, 6,
+        "Aperture Science gas turret.\n\nShoots mini-missiles that explodes into poison gas.\nCovers all angles.",
+        { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 3 },
+        "items/rocket_turret.png", nil, nil, { HORDE.DMG_BLAST })
     HORDE:CreateItem("Special", "Laser Turret", "npc_vj_horde_laser_turret", 1500, 5,
         "Aperture Science laser turret.\n\nFires tracing laser at the enemy.\nCovers all angles.",
         { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 3 },
         "items/laser_turret.png", { Engineer = 5 }, nil, { HORDE.DMG_BLAST })
+    HORDE:CreateItem("Special", "Gas Rocket Turret", "npc_vj_horde_gas_launcher", 3000, 6,
+        "Aperture Science gas turret.\n\nShoots mini-missiles that explodes into poison gas.\nCovers all angles.",
+        { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 3 },
+        "items/rocket_turret.png", nil, nil, { HORDE.DMG_BLAST })
+    HORDE:CreateItem("Special", "Barricade Hammer", "weapon_horde_xdebarricade", 1000, 2,
+        "An hammer for barricades.\n\nDoubles as melee in emergencies.\nConstructing has a cost",
+        { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 8 },
+        "items/horde_hammer.png", { Engineer = 5 }, nil, { HORDE.DMG_BLUNT })
+    HORDE:CreateItem("Special", "Razor Wire", "horde_razorwire", 300, 0.25,
+        "Simple Razorwire.\n\nSlows and damages enemies.\nTakes damage upon dealing damage.",
+        { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 8 },
+        "items/horde_razorwire.png", { Engineer = 5 }, nil, { HORDE.DMG_SLASH })
     HORDE:CreateItem("Special", "Sniper Turret", "npc_vj_horde_sniper_turret", 1500, 5,
         "Combine heavy sniper turret.\n\nCovers a long range and deals heavy damage, but with limited sight.\nAims for the head if possible.",
         { Engineer = true }, 10, -1, { type = HORDE.ENTITY_PROPERTY_DROP, x = 50, z = 15, yaw = 0, limit = 3 },
