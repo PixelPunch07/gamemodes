@@ -164,18 +164,21 @@ HORDE:ApplyDifficultyScaling()
 -- Server: receive a difficulty change request from any player
 util.AddNetworkString("Horde_RequestDifficulty")
 
+-- Difficulty index of MALICE (1-indexed, matches HORDE.difficulty_text)
+local DIFFICULTY_MALICE = 6
+
 net.Receive("Horde_RequestDifficulty", function(len, ply)
     local new_diff = net.ReadUInt(4)
     if new_diff < 1 or new_diff > #HORDE.difficulty_text then return end
 
-    -- MALICE (index 6) requires at least one class/subclass at Skilled rank (level ≥ 10).
-    if new_diff == 6 and not HORDE:PlayerCanVoteMalice(ply) then
-        -- Silently reject – the client UI should have already blocked this,
-        -- but guard server-side too.
-        net.Start("Horde_SyncDifficulty")
-            net.WriteUInt(HORDE.difficulty, 4)
-        net.Send(ply)
-        return
+    -- MALICE requires at least Skilled rank on any class/subclass.
+    if new_diff == DIFFICULTY_MALICE then
+        if not HORDE:PlayerMeetsRank(ply, HORDE.Rank_Skilled) then
+            HORDE:SendNotification(
+                "MALICE difficulty requires at least Skilled rank on any class or subclass.",
+                1, ply)
+            return
+        end
     end
 
     HORDE.difficulty = new_diff

@@ -118,6 +118,10 @@ HORDE:RegisterStatus("Freeze", "materials/status/frostbite.png", nil, true)
 HORDE:RegisterStatus("Weaken", "materials/perks/crude_casing.png", nil, true)
 HORDE:RegisterStatus("Hinder", "materials/perks/sticky_compound.png", nil, true)
 HORDE:RegisterStatus("Hemorrhage", "materials/status/hemorrhage.png", nil, true)
+-- Sea-Infection debuff: "Nervous Impairment" — bioluminescent blue necrosis variant.
+-- Deals Poison damage over time, steadily slows the target, and on expiry triggers
+-- a small burst of blue-tinged corrosive ooze around the victim.
+HORDE:RegisterStatus("Nervous_Impairment", "materials/status/necrosis.png", nil, true)
 HORDE:RegisterStatus("Fear", "materials/status/fear.png", nil, true)
 
 HORDE.Status_Buildup_Sounds = {}
@@ -127,6 +131,7 @@ HORDE.Status_Buildup_Sounds[HORDE.Status_Frostbite] = "horde/status/frostbite_bu
 HORDE.Status_Buildup_Sounds[HORDE.Status_Shock] = "weapons/stunstick/stunstick_fleshhit2.wav"
 HORDE.Status_Buildup_Sounds[HORDE.Status_Break] = "ambient/levels/canals/toxic_slime_sizzle1.wav"
 HORDE.Status_Buildup_Sounds[HORDE.Status_Necrosis] = "horde/status/necrosis_buildup.ogg"
+HORDE.Status_Buildup_Sounds[HORDE.Status_Nervous_Impairment] = "horde/status/necrosis_buildup.ogg"
 
 HORDE.Status_Trigger_Sounds = {}
 HORDE.Status_Trigger_Sounds[HORDE.Status_Bleeding] = "horde/status/bleeding_trigger.ogg"
@@ -135,6 +140,7 @@ HORDE.Status_Trigger_Sounds[HORDE.Status_Frostbite] = "horde/status/frostbite_tr
 HORDE.Status_Trigger_Sounds[HORDE.Status_Shock] = "horde/status/shock_trigger.ogg"
 HORDE.Status_Trigger_Sounds[HORDE.Status_Break] = "horde/status/break_trigger.ogg"
 HORDE.Status_Trigger_Sounds[HORDE.Status_Necrosis] = "" --"horde/status/necrosis_trigger.ogg"
+HORDE.Status_Trigger_Sounds[HORDE.Status_Nervous_Impairment] = "horde/status/necrosis_buildup.ogg"
 
 HORDE.Debuff_Notifications = {
     [HORDE.Status_Bleeding] = "You are inflicted by Bleeding.\nYour health is removed over time.",
@@ -144,7 +150,8 @@ HORDE.Debuff_Notifications = {
     [HORDE.Status_Break] = "You are inflicted by Break.\nYour health is reduced drastically and will recover slowly.",
     [HORDE.Status_Decay] = "You are inflicted by Decay.\nYou cannot heal.",
     [HORDE.Status_Psychosis] = "Y'ai 'ng'ngah, Yog-Sothoth h'ee - l'geb f'ai throdog uaaah.",
-    [HORDE.Status_Necrosis] = "You are dying from Necrosis."
+    [HORDE.Status_Necrosis] = "You are dying from Necrosis.",
+    [HORDE.Status_Nervous_Impairment] = "You are afflicted by Nervous Impairment.\nYour nervous system is corroding. Poison damage drains you and movement is impaired.",
 }
 
 local plymeta = FindMetaTable("Player")

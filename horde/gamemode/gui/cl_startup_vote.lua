@@ -126,11 +126,14 @@ local function CreateVotePanel()
             if not show_result then
                 local req_txt = nil
                 if vote_phase == "difficulty" and opt.id == tostring(6) then
-                    local ok = HORDE:PlayerCanVoteMalice(LocalPlayer())
+                    local ok = HORDE:PlayerMeetsRank(LocalPlayer(), HORDE.Rank_Skilled)
                     req_txt = ok and nil or "Requires Skilled rank"
                 elseif vote_phase == "waveset" and opt.id == "xeno" then
-                    local ok = HORDE:PlayerCanVoteXeno(LocalPlayer())
+                    local ok = HORDE:PlayerMeetsRank(LocalPlayer(), HORDE.Rank_Amateur)
                     req_txt = ok and nil or "Requires Amateur rank"
+                elseif vote_phase == "waveset" and opt.id == "sea_infection" then
+                    local ok = HORDE:PlayerMeetsRank(LocalPlayer(), HORDE.Rank_Skilled)
+                    req_txt = ok and nil or "Requires Skilled rank"
                 end
                 if req_txt then
                     draw.SimpleText(req_txt, "Trebuchet18",
@@ -230,14 +233,20 @@ local function CreateVotePanel()
 
         -- Rank gate
         if vote_phase == "difficulty" and opt.id == tostring(6) then
-            if not HORDE:PlayerCanVoteMalice(LocalPlayer()) then
+            if not HORDE:PlayerMeetsRank(LocalPlayer(), HORDE.Rank_Skilled) then
                 chat.AddText(Color(255, 100, 60), "[Horde] You need Skilled rank to vote for MALICE.")
                 return
             end
         end
         if vote_phase == "waveset" and opt.id == "xeno" then
-            if not HORDE:PlayerCanVoteXeno(LocalPlayer()) then
+            if not HORDE:PlayerMeetsRank(LocalPlayer(), HORDE.Rank_Amateur) then
                 chat.AddText(Color(255, 160, 40), "[Horde] You need Amateur rank to vote for XENO.")
+                return
+            end
+        end
+        if vote_phase == "waveset" and opt.id == "sea_infection" then
+            if not HORDE:PlayerMeetsRank(LocalPlayer(), HORDE.Rank_Skilled) then
+                chat.AddText(Color(40, 140, 220), "[Horde] You need Skilled rank to vote for SEA-INFECTION.")
                 return
             end
         end

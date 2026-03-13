@@ -529,6 +529,9 @@ local function ReloadEnemiesByWaveset(waveset)
     if waveset == "xeno" then
         HORDE.max_waves = 12
         HORDE:GetXenoEnemiesData()
+    elseif waveset == "sea_infection" then
+        HORDE.max_waves = 11   -- 10 regular + wave 11 boss (Thymicgthys)
+        HORDE:GetSeaInfectionEnemiesData()
     else
         -- Respect horde_max_wave convar but cap at 10 for default
         HORDE.max_waves = math.min(10, math.max(1, GetConVarNumber("horde_max_wave")))
@@ -545,6 +548,9 @@ if SERVER then
     util.AddNetworkString("Horde_WavesetChanged")
     util.AddNetworkString("Horde_XenoFogStart")
     util.AddNetworkString("Horde_XenoFogEnd")
+    util.AddNetworkString("Horde_XenoAdaptationSync")
+    util.AddNetworkString("Horde_SeaFogStart")
+    util.AddNetworkString("Horde_SeaFogEnd")
 
     if GetConVar("horde_external_lua_config"):GetString() and GetConVar("horde_external_lua_config"):GetString() ~= "" then
     else
@@ -571,21 +577,46 @@ if SERVER then
         if not ply:IsAdmin() then return end
 
         local requested = net.ReadString()
-        if requested ~= "default" and requested ~= "xeno" then return end
+        if requested ~= "default" and requested ~= "xeno" and requested ~= "sea_infection" then return end
 
-        -- XENO waveset requires at least one class/subclass at Amateur rank (level ≥ 5).
-        if requested == "xeno" and not HORDE:PlayerCanVoteXeno(ply) then
-            -- Reject silently; client UI should have blocked this.
-            return
+        -- Xeno waveset requires at least Amateur rank on any class/subclass.
+        if requested == "xeno" then
+            if not HORDE:PlayerMeetsRank(ply, HORDE.Rank_Amateur) then
+                HORDE:SendNotification(
+                    "Xeno waveset requires at least Amateur rank on any class or subclass.",
+                    1, ply)
+                return
+            end
+        end
+
+        -- Sea-Infection waveset also requires at least Amateur rank.
+        if requested == "sea_infection" then
+            if not HORDE:PlayerMeetsRank(ply, HORDE.Rank_Amateur) then
+                HORDE:SendNotification(
+                    "Sea-Infection waveset requires at least Amateur rank on any class or subclass.",
+                    1, ply)
+                return
+            end
         end
 
         local previous = HORDE.waveset
         HORDE.waveset = requested
         ReloadEnemiesByWaveset(requested)
 
-        -- If switching away from xeno, clear the fog on all clients.
+        -- If switching away from xeno, clear the fog and reset adaptation on all clients.
         if previous == "xeno" and requested ~= "xeno" then
             net.Start("Horde_XenoFogEnd")
+            net.Broadcast()
+            -- Reset server-side adaptation
+            HORDE.xeno_adaptation = {}
+            net.Start("Horde_XenoAdaptationSync")
+                net.WriteTable({})
+            net.Broadcast()
+        end
+
+        -- If switching away from sea_infection, clear its blue fog.
+        if previous == "sea_infection" and requested ~= "sea_infection" then
+            net.Start("Horde_SeaFogEnd")
             net.Broadcast()
         end
 
@@ -596,7 +627,6 @@ if SERVER then
 
         HORDE:SendNotification("Waveset changed to: " .. requested, 0)
         print("[HORDE] - Waveset changed to: " .. requested .. " by " .. ply:Nick())
-        hook.Run("Horde_WavesetChanged_Server", requested)
     end)
 
     -- On wave 10 start in xeno mode: dense fog + ominous chat message.
@@ -613,6 +643,19 @@ if SERVER then
             ply:PrintMessage(HUD_PRINTTALK, "The Heart of the Xeno Virus approaches sinisterly.")
         end
     end)
+
+    -- On wave 10 start in Sea-Infection mode: deep blue abyssal fog + ominous chat.
+    hook.Add("HordeWaveStart", "Horde_SeaWave10Events", function(wave)
+        if HORDE.waveset ~= "sea_infection" then return end
+        if wave ~= 10 then return end
+
+        net.Start("Horde_SeaFogStart")
+        net.Broadcast()
+
+        for _, ply in pairs(player.GetAll()) do
+            ply:PrintMessage(HUD_PRINTTALK, "The abyss stirs. Thymicgthys, Sea Born Ruler, rises from the depths.")
+        end
+    end)
 end
 
 -- Clients receive waveset changes and update HORDE.waveset for UI.
@@ -623,118 +666,258 @@ if CLIENT then
 end
 
 -- =============================================================================
--- XENO WAVESET: ENEMY ADAPTATION SYSTEM
--- Enemies collectively adapt to damage types over the course of a Xeno run.
--- Each enemy kill increases resistance to the damage type that last hit it.
--- Resistance per kill: +0.09% | Cap: 36% per type | Applies to ALL enemy types
+-- SEA-INFECTION ENEMY ROSTER
+-- 24 unique Seaborn-themed enemies tinted bioluminescent blue.
+-- Inspired by Arknights' Seaborn faction: aquatic, parasitic, deep-sea horrors.
+-- All use existing VJ Horde NPC classes with blue tints and retuned scales.
+--
+-- ENEMY ROSTER (24 unique types):
+--   Tidewalker          — Basic seaborn shambler. Slow but tough.
+--   Skimmer             — Fast seaborn scout. Sprinter analogue.
+--   Reef Crawler        — Low, skittering crab-like horror. Crawler analogue.
+--   Abyssal Lurker      — Explosive bladder. Exploder analogue.
+--   Vomit Eel           — Ranged acid spitter. Vomitter analogue.
+--   Pressure Screamer   — Sonic burst emitter. Screecher analogue.
+--   Tide Zombie         — Half-devoured corpse. Zombine analogue.
+--   Charred Tideling    — Flame-touched seaborn. Charred Zombine analogue.
+--   Deep Hulk           — Massive armored brute. Hulk analogue.
+--   Mutation Hulk       — Aberrant growth form. Mutated Hulk analogue.
+--   Coral Blight        — Crystalline hazard zone. Blight analogue.
+--   Plague Diver        — Soldier-class seaborn. Plague Soldier analogue.
+--   Weeping Polyp       — Toxic mist emanator. Weeper analogue.
+--   Lesion Tendril      — Whip-like stinger. Lesion analogue.
+--   Elite Predator      — Alpha-class hunter. Plague Elite analogue.
+--   Deep Scorcher       — Thermal vent creature. Scorcher analogue.
+--   Depth Parasite      — Tiny, fast, multiplying. Fast Zombie analogue.
+--   Torso Crawler       — Severed upper body. Zombie Torso analogue.
+--   Riftborn Yeti       — Pressurised deep giant. Yeti analogue.
+--   Herald of Breen     — Corrupted deep herald. Horde Breen analogue.
+--   Alpha Gonome        — Ancient sea gonome. Alpha Gonome analogue.
+--   Gamma Gonome        — Mutated deep gonome. Gamma Gonome analogue.
+--   Platoon Diver       — Elite diver pack. Plague Platoon analogue.
+--   BOSS: Thymicgthys   — Sea Born Ruler. Wave 11 final boss.
 -- =============================================================================
 
--- Global adaptation table: keyed by HORDE.DMG_* int → resistance (0.0 – 0.36)
-HORDE.xeno_adaptation = {}
 
--- Reset adaptation whenever the waveset changes or a new game begins.
-local function ResetXenoAdaptation()
-    HORDE.xeno_adaptation = {}
-end
+local SEA_BLUE = Color(30, 140, 255)  -- Bioluminescent deep blue tint
 
-if SERVER then
-    util.AddNetworkString("Horde_XenoAdaptationSync")
-    util.AddNetworkString("Horde_XenoAdaptationReset")
+function HORDE:GetSeaInfectionEnemiesData()
 
-    -- Broadcast the full adaptation table to all clients.
-    local function SyncAdaptationToClients()
-        -- Pack non-zero entries only (saves net bandwidth).
-        local packed = {}
-        for dmg_type, resist in pairs(HORDE.xeno_adaptation) do
-            if resist > 0 then
-                packed[tostring(dmg_type)] = resist
-            end
-        end
-        net.Start("Horde_XenoAdaptationSync")
-            net.WriteTable(packed)
-        net.Broadcast()
-    end
+    -- =========================================================================
+    -- WAVE 1 — First contact: the shallows stir.
+    -- Tidewalkers and Skimmers wade ashore alongside Nzr'apl Shamblers
+    -- and nimble Tide Runners — the Seaborn vanguard makes landfall.
+    -- =========================================================================
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  1, false, 1.1,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.85,  1, false, 0.9,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Torso Crawler",        "npc_vj_horde_sea_torso_crawler",     0.30,  1, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Depth Parasite",       "npc_vj_horde_sea_depth_parasite",    0.20,  1, false, 0.75, 1,    1,    1,    SEA_BLUE)
+    -- Seaborn additions: T1 shambler and fast runner debut
+    HORDE:CreateEnemy("Nzr'apl Shambler",     "npc_vj_horde_sb_nzrapl",            0.55,  1, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tide Runner",          "npc_vj_horde_sb_tide_runner",        0.45,  1, false, 1,    1,    1,    1,    SEA_BLUE)
 
-    -- Reset adaptation when waveset changes away from xeno, or map restarts.
-    hook.Add("Horde_WavesetChanged_Server", "Horde_ResetAdaptationOnWavesetChange", function(new_waveset)
-        if new_waveset ~= "xeno" then
-            ResetXenoAdaptation()
-            net.Start("Horde_XenoAdaptationReset")
-            net.Broadcast()
-        end
-    end)
+    -- =========================================================================
+    -- WAVE 2 — Reef Crawlers join the assault; Aegirian Infected emerge.
+    -- The Corrupted Aegirian's poison aura signals a darker infection.
+    -- =========================================================================
+    HORDE:CreateEnemy("Plague Carrier",       "npc_vj_horde_sea_plague_carrier",    0.20,  2, false, 1,    1,    1.2,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  2, false, 1.1,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.80,  2, false, 0.9,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Reef Crawler",         "npc_vj_horde_sea_reef_crawler",      0.40,  2, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Depth Parasite",       "npc_vj_horde_sea_depth_parasite",    0.20,  2, false, 0.75, 1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Abyssal Lurker",       "npc_vj_horde_sea_abyssal_lurker",    0.25,  2, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    -- Seaborn additions: Aegirian Infected faction arrives
+    HORDE:CreateEnemy("Nzr'apl Shambler",     "npc_vj_horde_sb_nzrapl",            0.45,  2, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tide Runner",          "npc_vj_horde_sb_tide_runner",        0.40,  2, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Corrupted Aegirian",   "npc_vj_horde_sb_aegirian",           0.25,  2, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Aegirian Skimmer",     "npc_vj_horde_sb_skimmer",            0.30,  2, false, 1,    1,    1,    1,    SEA_BLUE)
 
-    hook.Add("InitPostEntity", "Horde_ResetAdaptationOnLoad", function()
-        ResetXenoAdaptation()
-    end)
+    -- =========================================================================
+    -- WAVE 3 — Vomit Eels arrive; ranged threats multiply.
+    -- Tide Lurkers stalk unseen and the Abyssal Choir opens fire from range.
+    -- =========================================================================
+    HORDE:CreateEnemy("Brood Host",           "npc_vj_horde_sea_brood_host",        0.15,  3, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  3, false, 1.1,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.80,  3, false, 0.9,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Reef Crawler",         "npc_vj_horde_sea_reef_crawler",      0.40,  3, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Vomit Eel",            "npc_vj_horde_sea_vomit_eel",         0.30,  3, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Abyssal Lurker",       "npc_vj_horde_sea_abyssal_lurker",    0.20,  3, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tide Zombie",          "npc_vj_horde_sea_tide_zombie",       0.10,  3, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    -- Seaborn additions: stealth ambushers and choir ranged support
+    HORDE:CreateEnemy("Corrupted Aegirian",   "npc_vj_horde_sb_aegirian",           0.20,  3, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Aegirian Skimmer",     "npc_vj_horde_sb_skimmer",            0.25,  3, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tide Lurker",          "npc_vj_horde_sb_lurker",             0.18,  3, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Abyssal Choir",        "npc_vj_horde_sb_choir",              0.15,  3, true,  1,    1,    1.25, 1,    SEA_BLUE)
 
-    -- Core adaptation hook: fires when a player kills a Xeno-waveset enemy.
-    hook.Add("Horde_OnEnemyKilled", "Horde_XenoAdaptation", function(victim, killer, weapon)
-        if HORDE.waveset ~= "xeno" then return end
-        if not IsValid(victim) then return end
+    -- =========================================================================
+    -- WAVE 4 — Pressure Screamers shatter morale; Plague Divers surface.
+    -- Tide Zealots begin their suicidal devotion. Nessuno Thralls carve
+    -- through the press with inhuman speed. Void Screamers warp the air.
+    -- =========================================================================
+    HORDE:CreateEnemy("Spore Drifter",        "npc_vj_horde_sea_spore_drifter",     0.25,  4, false, 1,    1,    0.9,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  4, false, 1.1,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.75,  4, false, 0.9,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Reef Crawler",         "npc_vj_horde_sea_reef_crawler",      0.35,  4, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Pressure Screamer",    "npc_vj_horde_sea_pressure_screamer", 0.20,  4, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Plague Diver",         "npc_vj_horde_sea_plague_diver",      0.15,  4, false, 1,    1.1,  1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Vomit Eel",            "npc_vj_horde_sea_vomit_eel",         0.25,  4, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tide Zombie",          "npc_vj_horde_sea_tide_zombie",       0.10,  4, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    -- Seaborn additions: zealot bombers, rapid thralls, sonic screamers
+    HORDE:CreateEnemy("Tide Lurker",          "npc_vj_horde_sb_lurker",             0.18,  4, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Abyssal Choir",        "npc_vj_horde_sb_choir",              0.15,  4, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tide Zealot",          "npc_vj_horde_sb_zealot",             0.20,  4, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Nessuno Thrall",       "npc_vj_horde_sb_nessuno",            0.18,  4, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Void Screamer",        "npc_vj_horde_sb_screamer",           0.15,  4, true,  1,    1,    1.25, 1,    SEA_BLUE)
 
-        -- Read the damage type that last struck this enemy.
-        local dmg_type = victim.Horde_Last_HordeDmgType
-        if not dmg_type or dmg_type == HORDE.DMG_PURE then return end
+    -- =========================================================================
+    -- WAVE 5 — Charred Tidelings ignite chaos; Coral Blight zones emerge.
+    -- Bioluminescent Burners burn bright and hot. Inkblood Spectres stalk
+    -- from the dark. The Tide Assimilator reshapes what it kills.
+    -- =========================================================================
+    HORDE:CreateEnemy("Tidecaller",           "npc_vj_horde_sea_tidecaller",        0.12,  5, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  5, false, 1.2,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.75,  5, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Charred Tideling",     "npc_vj_horde_sea_charred_tideling",  0.15,  5, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Coral Blight",         "npc_vj_horde_sea_coral_blight",      0.15,  5, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Pressure Screamer",    "npc_vj_horde_sea_pressure_screamer", 0.20,  5, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Plague Diver",         "npc_vj_horde_sea_plague_diver",      0.15,  5, false, 1,    1.1,  1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Abyssal Lurker",       "npc_vj_horde_sea_abyssal_lurker",    0.20,  5, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    -- Seaborn additions: fire-touched and shadow assassins emerge
+    HORDE:CreateEnemy("Tide Zealot",          "npc_vj_horde_sb_zealot",             0.20,  5, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Nessuno Thrall",       "npc_vj_horde_sb_nessuno",            0.20,  5, false, 1,    1,    1.1,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Void Screamer",        "npc_vj_horde_sb_screamer",           0.15,  5, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Bioluminescent Burner","npc_vj_horde_sb_burner",             0.12,  5, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Inkblood Spectre",     "npc_vj_horde_sb_inkblood",           0.10,  5, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tide Assimilator",     "npc_vj_horde_sb_assimilator",        0.12,  5, true,  1,    1,    1.25, 1,    SEA_BLUE)
 
-        local current = HORDE.xeno_adaptation[dmg_type] or 0
-        local new_val  = math.min(0.36, current + 0.0009)  -- +0.09% per kill, cap 36%
+    -- =========================================================================
+    -- WAVE 6 — Deep Hulks lumber forward; Weeping Polyps begin saturation.
+    -- The Abyssal Warden makes its first crushing appearance.
+    -- Seaborn Revenants refuse to die.
+    -- =========================================================================
+    HORDE:CreateEnemy("Kelp Strangler",       "npc_vj_horde_sea_kelp_strangler",    0.15,  6, false, 1,    1,    1.2,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  6, false, 1.2,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.70,  6, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Deep Hulk",            "npc_vj_horde_sea_deep_hulk",         0.10,  6, true,  1.2,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Weeping Polyp",        "npc_vj_horde_sea_weeping_polyp",     0.15,  6, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Coral Blight",         "npc_vj_horde_sea_coral_blight",      0.15,  6, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Plague Diver",         "npc_vj_horde_sea_plague_diver",      0.15,  6, false, 1,    1.1,  1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Deep Scorcher",        "npc_vj_horde_sea_deep_scorcher",     0.10,  6, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    -- Seaborn additions: armored warden, undying revenant, spreading assimilator
+    HORDE:CreateEnemy("Bioluminescent Burner","npc_vj_horde_sb_burner",             0.12,  6, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Inkblood Spectre",     "npc_vj_horde_sb_inkblood",           0.10,  6, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Tide Assimilator",     "npc_vj_horde_sb_assimilator",        0.12,  6, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Abyssal Warden",       "npc_vj_horde_sb_warden",             0.06,  6, true,  1,    1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Seaborn Revenant",     "npc_vj_horde_sb_revenant",           0.10,  6, true,  1,    1,    1.5,  1,    SEA_BLUE)
 
-        if new_val ~= current then
-            HORDE.xeno_adaptation[dmg_type] = new_val
-            SyncAdaptationToClients()
-        end
-    end)
+    -- =========================================================================
+    -- WAVE 7 — Riftborn Yeti and Lesion Tendrils; pressure intensifies.
+    -- The Deep Prophet first whispers its name. The Abyssal Herald stalks
+    -- from the shadows. Revenants surge in greater numbers.
+    -- =========================================================================
+    HORDE:CreateEnemy("Abyssal Shade",        "npc_vj_horde_sea_abyssal_shade",     0.12,  7, false, 1,    1,    1.2,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Barnacle Golem",       "npc_vj_horde_sea_barnacle_golem",    0.05,  7, true,  1.1,  1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  7, false, 1.3,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.70,  7, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Reef Crawler",         "npc_vj_horde_sea_reef_crawler",      0.30,  7, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Riftborn Yeti",        "npc_vj_horde_sea_riftborn_yeti",     0.08,  7, true,  1.1,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Lesion Tendril",       "npc_vj_horde_sea_lesion_tendril",    0.10,  7, true,  1,    1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Deep Hulk",            "npc_vj_horde_sea_deep_hulk",         0.08,  7, true,  1.2,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Weeping Polyp",        "npc_vj_horde_sea_weeping_polyp",     0.12,  7, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Pressure Screamer",    "npc_vj_horde_sea_pressure_screamer", 0.15,  7, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    -- Seaborn additions: prophets and heralds emerge from the deep
+    HORDE:CreateEnemy("Tide Assimilator",     "npc_vj_horde_sb_assimilator",        0.12,  7, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Abyssal Warden",       "npc_vj_horde_sb_warden",             0.06,  7, true,  1.1,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Seaborn Revenant",     "npc_vj_horde_sb_revenant",           0.10,  7, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Deep Prophet",         "npc_vj_horde_sb_prophet",            0.04,  7, true,  1,    1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Abyssal Herald",       "npc_vj_horde_sb_herald",             0.06,  7, true,  1,    1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
 
-    -- Also reset adaptation at the start of each new game (wave 1).
-    hook.Add("HordeWaveStart", "Horde_ResetAdaptationOnWave1", function(wave)
-        if wave == 1 then
-            ResetXenoAdaptation()
-            net.Start("Horde_XenoAdaptationReset")
-            net.Broadcast()
-        end
-    end)
-end
+    -- =========================================================================
+    -- WAVE 8 — Elite Predators hunt; Mutation Hulks emerge from the deep.
+    -- Deep Prophets unleash their coral barrages. Ishar'mla Sprouts begin
+    -- surfacing as advance scouts of something far larger beneath.
+    -- =========================================================================
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  8, false, 1.3,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.70,  8, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Elite Predator",       "npc_vj_horde_sea_elite_predator",    0.08,  8, true,  1,    1.1,  3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Mutation Hulk",        "npc_vj_horde_sea_mutation_hulk",     0.06,  8, true,  1.2,  1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Riftborn Yeti",        "npc_vj_horde_sea_riftborn_yeti",     0.07,  8, true,  1.1,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Deep Scorcher",        "npc_vj_horde_sea_deep_scorcher",     0.10,  8, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Alpha Gonome",         "npc_vj_horde_sea_alpha_gonome",      0.07,  8, true,  1,    1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Plague Diver",         "npc_vj_horde_sea_plague_diver",      0.12,  8, false, 1.1,  1.1,  1.25, 1,    SEA_BLUE)
+    -- Seaborn additions: elite abyssals and first Sprout scouts
+    HORDE:CreateEnemy("Abyssal Warden",       "npc_vj_horde_sb_warden",             0.06,  8, true,  1.1,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Seaborn Revenant",     "npc_vj_horde_sb_revenant",           0.10,  8, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Deep Prophet",         "npc_vj_horde_sb_prophet",            0.05,  8, true,  1,    1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Abyssal Herald",       "npc_vj_horde_sb_herald",             0.06,  8, true,  1.1,  1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Inkblood Spectre",     "npc_vj_horde_sb_inkblood",           0.08,  8, true,  1.1,  1,    2,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Ishar'mla Sprout",     "npc_vj_horde_sb_isharspawn",         0.04,  8, true,  1,    1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
 
-if CLIENT then
-    -- Receive full adaptation table from server.
-    net.Receive("Horde_XenoAdaptationSync", function()
-        local packed = net.ReadTable()
-        HORDE.xeno_adaptation = {}
-        for k, v in pairs(packed) do
-            HORDE.xeno_adaptation[tonumber(k)] = v
-        end
-    end)
+    -- =========================================================================
+    -- WAVE 9 — Herald of Breen commands; Gamma Gonomes multiply.
+    -- The Ishar'mla Sprouts swarm in force. The full Seaborn apex faction
+    -- is now assembled and pressing hard toward the final surge.
+    -- =========================================================================
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00,  9, false, 1.4,  1.1,  1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.70,  9, false, 1,    1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Herald of Breen",      "npc_vj_horde_sea_herald",            0.05,  9, true,  1.1,  1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Gamma Gonome",         "npc_vj_horde_sea_gamma_gonome",      0.06,  9, true,  1,    1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Alpha Gonome",         "npc_vj_horde_sea_alpha_gonome",      0.06,  9, true,  1,    1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Mutation Hulk",        "npc_vj_horde_sea_mutation_hulk",     0.06,  9, true,  1.2,  1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Elite Predator",       "npc_vj_horde_sea_elite_predator",    0.07,  9, true,  1,    1.1,  3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Abyssal Lurker",       "npc_vj_horde_sea_abyssal_lurker",    0.15,  9, true,  1,    1,    1.25, 1,    SEA_BLUE)
+    HORDE:CreateEnemy("Weeping Polyp",        "npc_vj_horde_sea_weeping_polyp",     0.10,  9, true,  1,    1,    1.5,  1,    SEA_BLUE)
+    -- Seaborn additions: apex predators converge; Sprouts swarm in numbers
+    HORDE:CreateEnemy("Deep Prophet",         "npc_vj_horde_sb_prophet",            0.05,  9, true,  1.1,  1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Abyssal Herald",       "npc_vj_horde_sb_herald",             0.06,  9, true,  1.1,  1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Abyssal Warden",       "npc_vj_horde_sb_warden",             0.05,  9, true,  1.2,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Seaborn Revenant",     "npc_vj_horde_sb_revenant",           0.10,  9, true,  1.1,  1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Ishar'mla Sprout",     "npc_vj_horde_sb_isharspawn",         0.06,  9, true,  1,    1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Tide Assimilator",     "npc_vj_horde_sb_assimilator",        0.10,  9, true,  1.1,  1,    1.25, 1,    SEA_BLUE)
 
-    net.Receive("Horde_XenoAdaptationReset", function()
-        HORDE.xeno_adaptation = {}
-    end)
-end
+    -- =========================================================================
+    -- WAVE 10 — The full Seaborn vanguard surges. Every horror of the deep
+    -- converges for the final push before the BOSS: Ishar'mla Echo rises
+    -- from the abyss and opens the gate for what follows in wave 11.
+    -- =========================================================================
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00, 10, false, 1.5,  1.1,  1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Skimmer",              "npc_vj_horde_sea_skimmer",           0.70, 10, false, 1.1,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Reef Crawler",         "npc_vj_horde_sea_reef_crawler",      0.30, 10, false, 1.1,  1,    1,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Elite Predator",       "npc_vj_horde_sea_elite_predator",    0.07, 10, true,  1.1,  1.2,  3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Mutation Hulk",        "npc_vj_horde_sea_mutation_hulk",     0.06, 10, true,  1.3,  1.1,  2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Gamma Gonome",         "npc_vj_horde_sea_gamma_gonome",      0.06, 10, true,  1.1,  1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Coral Blight",         "npc_vj_horde_sea_coral_blight",      0.10, 10, true,  1.1,  1,    1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Lesion Tendril",       "npc_vj_horde_sea_lesion_tendril",    0.08, 10, true,  1.1,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Platoon Diver",        "npc_vj_horde_sea_platoon_diver",     0.10, 10, false, 1.1,  1.1,  1.25, 1,    SEA_BLUE)
+    -- Seaborn apex units flood in before the wave boss
+    HORDE:CreateEnemy("Deep Prophet",         "npc_vj_horde_sb_prophet",            0.06, 10, true,  1.2,  1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Abyssal Herald",       "npc_vj_horde_sb_herald",             0.07, 10, true,  1.2,  1,    2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Abyssal Warden",       "npc_vj_horde_sb_warden",             0.05, 10, true,  1.3,  1,    2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Ishar'mla Sprout",     "npc_vj_horde_sb_isharspawn",         0.07, 10, true,  1.1,  1,    3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Inkblood Spectre",     "npc_vj_horde_sb_inkblood",           0.08, 10, true,  1.2,  1,    2,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Seaborn Revenant",     "npc_vj_horde_sb_revenant",           0.08, 10, true,  1.2,  1,    1.5,  1,    SEA_BLUE)
+    -- Wave 10 BOSS: Ishar'mla Echo — the herald of Skadi's descent
+    HORDE:CreateEnemy("Ishar'mla Echo",       "npc_vj_horde_sb_ishar",              1,    10, true,  1,    1,    10,   1,    SEA_BLUE, nil, nil,
+        {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.5, music="music/hl1_song24.mp3", music_duration=84}, "none")
 
--- =============================================================================
--- SHARED: rank requirement helpers
--- Used by both server validation and client UI.
--- MALICE difficulty requires any class/subclass at Skilled rank (level ≥ 10).
--- XENO waveset requires any class/subclass at Amateur rank (level ≥ 5).
--- =============================================================================
+    -- =========================================================================
+    -- WAVE 11 — FINAL WAVE: The abyss opens fully.
+    -- Skadi the Corrupted, supreme ruler of the Seaborn, descends.
+    -- The mightiest Seaborn hold the line as Skadi reshapes the world.
+    -- =========================================================================
+    HORDE:CreateEnemy("Tidewalker",           "npc_vj_horde_sea_tidewalker",        1.00, 11, false, 1.6,  1.2,  1,    1.1,  SEA_BLUE)
+    HORDE:CreateEnemy("Mutation Hulk",        "npc_vj_horde_sea_mutation_hulk",     0.10, 11, false, 1.4,  1.2,  2.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Elite Predator",       "npc_vj_horde_sea_elite_predator",    0.06, 11, false, 1.2,  1.3,  3,    1,    SEA_BLUE)
+    HORDE:CreateEnemy("Ishar'mla Sprout",     "npc_vj_horde_sb_isharspawn",         0.08, 11, false, 1.2,  1.1,  3,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Abyssal Herald",       "npc_vj_horde_sb_herald",             0.06, 11, false, 1.3,  1.1,  2.5,  1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    HORDE:CreateEnemy("Seaborn Revenant",     "npc_vj_horde_sb_revenant",           0.07, 11, false, 1.3,  1.2,  1.5,  1,    SEA_BLUE)
+    HORDE:CreateEnemy("Abyssal Warden",       "npc_vj_horde_sb_warden",             0.05, 11, false, 1.4,  1.1,  2,    1,    SEA_BLUE, nil, nil, nil, nil, nil, nil, 1)
+    -- Final BOSS: Skadi the Corrupted — Sea Born Ruler, Thymicgthys
+    HORDE:CreateEnemy("Sea Born Ruler, Thymicgthys", "npc_vj_horde_sb_abyssal_king", 1,   11, true,  1,    1,    10,   1.2,  SEA_BLUE, nil, nil,
+        {is_boss=true, end_wave=true, unlimited_enemies_spawn=true, enemies_spawn_threshold=0.3,
+         music="zombiesurvival/xeno_raid/genesis_of_the_virus.mp3", music_duration=185}, "none")
 
--- Returns true if the player has at least one class/subclass at or above minLevel.
-function HORDE:PlayerMeetsMinLevel(ply, minLevel)
-    if not IsValid(ply) then return false end
-    if not HORDE.subclasses then return false end
-    for subclass_name, _ in pairs(HORDE.subclasses) do
-        if ply:Horde_GetLevel(subclass_name) >= minLevel then
-            return true
-        end
-    end
-    return false
-end
+    HORDE:NormalizeEnemiesWeight()
 
--- Convenience wrappers
-function HORDE:PlayerCanVoteMalice(ply)
-    return HORDE:PlayerMeetsMinLevel(ply, 10)   -- Skilled rank = level 10+
-end
-
-function HORDE:PlayerCanVoteXeno(ply)
-    return HORDE:PlayerMeetsMinLevel(ply, 5)    -- Amateur rank = level 5+
+    print("[HORDE] - Loaded Sea-Infection enemy config. 44 enemy types (24 original + 20 Seaborn) across 11 waves.")
 end

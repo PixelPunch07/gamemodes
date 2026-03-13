@@ -697,3 +697,74 @@ hook.Add("HUDPaint", "Horde_XenoAdaptationHUD", function()
         y = y + row_h + ScreenScale(2)
     end
 end)
+
+-- =============================================================================
+-- NERVOUS IMPAIRMENT — client-side blue tint screen effect
+-- =============================================================================
+local ni_active = false
+
+net.Receive("Horde_NervousImpairmentFX", function()
+    ni_active = net.ReadBool()
+end)
+
+hook.Add("RenderScreenspaceEffects", "Horde_NervousImpairmentTint", function()
+    if not ni_active then return end
+    -- Blue-tinged color modulation while afflicted
+    DrawColorModify({
+        ["$pp_colour_addr"] = 0,
+        ["$pp_colour_addg"] = 0,
+        ["$pp_colour_addb"] = 0.08,
+        ["$pp_colour_brightness"] = -0.04,
+        ["$pp_colour_contrast"] = 1.05,
+        ["$pp_colour_colour"] = 0.65,
+        ["$pp_colour_mulr"] = 0.6,
+        ["$pp_colour_mulg"] = 0.8,
+        ["$pp_colour_mulb"] = 1,
+    })
+end)
+
+-- =============================================================================
+-- SEA-INFECTION FOG
+-- Dense bioluminescent blue-teal fog that envelops the map from wave 10.
+-- =============================================================================
+local sea_fog_active  = false
+local sea_fog_opacity = 0
+local sea_fog_target  = 0
+
+net.Receive("Horde_SeaFogStart", function()
+    sea_fog_active = true
+    sea_fog_target = 1
+end)
+
+net.Receive("Horde_SeaFogEnd", function()
+    sea_fog_target = 0
+end)
+
+hook.Add("CalcView", "Horde_SeaFog", function(ply, origin, angles, fov, znear, zfar)
+    if not sea_fog_active then return end
+
+    local dt = FrameTime()
+    sea_fog_opacity = math.Clamp(sea_fog_opacity + (sea_fog_target - sea_fog_opacity) * dt * 0.6, 0, 1)
+
+    if sea_fog_target == 0 and sea_fog_opacity < 0.005 then
+        sea_fog_active  = false
+        sea_fog_opacity = 0
+        return
+    end
+
+    local view = {}
+    view.origin   = origin
+    view.angles   = angles
+    view.fov      = fov
+    view.znear    = znear
+    view.zfar     = zfar
+
+    -- Deep abyssal blue-teal fog
+    view.fogenable     = true
+    view.fogcolor      = Color(10, 80, 160)
+    view.fogstart      = 60
+    view.fogend        = 750
+    view.fogmaxdensity = 0.88 * sea_fog_opacity
+
+    return view
+end)

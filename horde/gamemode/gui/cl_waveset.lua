@@ -1,3 +1,7 @@
+-- Horde Waveset Menu
+-- Allows admins to switch between "Default" and "Xeno" enemy wavesets.
+-- Opens via: horde_waveset_menu (concommand) → server → Horde_ToggleWaveset net msg → client
+-- Or directly via the Configuration Menu button.
 
 local PANEL = {}
 
@@ -6,15 +10,24 @@ local WAVESETS = {
         id          = "default",
         label       = "DEFAULT",
         desc        = "Original enemy roster. Vanilla Horde enemies across all 10 waves.",
-        sub         = "Welcome to P.K.C, default enemies. No special gimmicks.",
+        sub         = "Zombies, Crawlers, Hulks, Gonomes and more.",
         color       = Color(180, 80,  80),
     },
     {
         id          = "xeno",
         label       = "XENO",
-        desc        = "The Tyrant released a strain of T-Virus that is fatally dangerous.",
-        sub         = "The Xeno act as a hivemind. They adapt slowly to your damage types.",
+        desc        = "Xeno-variant enemies replace all standard NPCs. Every enemy is tinted green.",
+        sub         = "Xeno Walkers, Sprinters, Plague Soldiers, Xeno Gonomes and more.",
         color       = Color(50,  220, 80),
+        req_rank    = HORDE.Rank_Amateur,
+    },
+    {
+        id          = "sea_infection",
+        label       = "SEA-INFECTION",
+        desc        = "Seaborn entities from the deep. All enemies tinted bioluminescent blue.",
+        sub         = "Tidewalkers, Abyssal Lurkers, Coral Brutes, Reef Parasites and more.",
+        color       = Color(30,  160, 255),
+        req_rank    = HORDE.Rank_Skilled,
     },
 }
 
@@ -70,8 +83,8 @@ function PANEL:Init()
     for _, ws in ipairs(WAVESETS) do
         local row = vgui.Create("DPanel", self)
         row:SetPos(14, y_start)
-        row:SetSize(w - 28, ws.id == "xeno" and 118 or 100)
-        y_start = y_start + (ws.id == "xeno" and 130 or 112)
+        row:SetSize(w - 28, 100)
+        y_start = y_start + 112
 
         local is_selected = (HORDE.waveset == ws.id)
         local hovered     = false
@@ -126,26 +139,33 @@ function PANEL:Init()
         sub_lbl:SizeToContents()
         sub_lbl:SetPos(16, 62)
 
-        -- Rank requirement badge for XENO
-        if ws.id == "xeno" then
-            local meets = HORDE:PlayerCanVoteXeno(LocalPlayer())
-            local req_lbl = vgui.Create("DLabel", row)
-            req_lbl:SetFont("Trebuchet18")
-            req_lbl:SetText(meets and "✔  Amateur rank required  (MET)" or "✘  Requires Amateur rank in any class/subclass")
-            req_lbl:SetTextColor(meets and Color(80, 220, 80) or Color(255, 160, 40))
-            req_lbl:SizeToContents()
-            req_lbl:SetPos(16, 82)
+        -- Rank requirement badge (shown only if waveset has one)
+        if ws.req_rank then
+            local ply        = LocalPlayer()
+            local meets      = HORDE:PlayerMeetsRank(ply, ws.req_rank)
+            local rank_col   = meets and Color(50, 205, 50) or Color(255, 80, 80)
+            local rank_txt   = meets
+                and ("✔  Requires " .. ws.req_rank .. " rank  (met)")
+                or  ("✘  Requires " .. ws.req_rank .. " rank on any class/subclass")
+            local rank_lbl = vgui.Create("DLabel", row)
+            rank_lbl:SetFont("Trebuchet18")
+            rank_lbl:SetText(rank_txt)
+            rank_lbl:SetTextColor(rank_col)
+            rank_lbl:SizeToContents()
+            rank_lbl:SetPos(name_lbl:GetX() + name_lbl:GetWide() + 12, 10)
         end
 
-        -- Click: send request to server (admin only)
+        -- Click: send request to server (admin only, rank check)
         row.OnMousePressed = function(_, mcode)
             if mcode ~= MOUSE_LEFT then return end
             if not is_admin then return end
             if is_selected then return end
 
-            -- XENO rank gate on client
-            if capture_ws.id == "xeno" and not HORDE:PlayerCanVoteXeno(LocalPlayer()) then
-                chat.AddText(Color(255, 160, 40), "[Horde] You need at least Amateur rank in any class/subclass to enable the XENO waveset.")
+            -- Client-side rank gate (server double-checks too)
+            if ws.req_rank and not HORDE:PlayerMeetsRank(LocalPlayer(), ws.req_rank) then
+                HORDE:PlayNotification(
+                    "Requires " .. ws.req_rank .. " rank on any class or subclass.",
+                    1, "materials/status/necrosis.png", Color(255, 80, 80))
                 return
             end
 

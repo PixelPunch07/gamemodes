@@ -134,17 +134,22 @@ function PANEL:Init()
         xp_label:SizeToContents()
         xp_label:SetPos(16, 58)
 
-        -- MALICE requirement badge (index 6 = MALICE)
-        local req_label = nil
-        if i == 6 then
-            req_label = vgui.Create("DLabel", row)
+        -- MALICE rank requirement badge
+        local MALICE_INDEX = 6
+        if i == MALICE_INDEX then
+            local ply = LocalPlayer()
+            local meets = HORDE:PlayerMeetsRank(ply, HORDE.Rank_Skilled)
+            local req_label = vgui.Create("DLabel", row)
             req_label:SetFont("Trebuchet18")
-            local meets = HORDE:PlayerCanVoteMalice(LocalPlayer())
-            req_label:SetText(meets and "✔  Skilled rank required  (MET)" or "✘  Requires Skilled rank in any class/subclass")
-            req_label:SetTextColor(meets and Color(80, 220, 80) or Color(255, 100, 60))
+            if meets then
+                req_label:SetText("✔  Requires Skilled rank  (met)")
+                req_label:SetTextColor(Color(50, 205, 50))
+            else
+                req_label:SetText("✘  Requires Skilled rank on any class/subclass")
+                req_label:SetTextColor(Color(255, 80, 80))
+            end
             req_label:SizeToContents()
-            -- Position to right of XP label
-            req_label:SetPos(xp_label:GetX() + xp_label:GetWide() + 16, 60)
+            req_label:SetPos(name_label:GetX() + name_label:GetWide() + 12, 10)
         end
 
         -- Click handler – close the menu and request the change
@@ -153,12 +158,6 @@ function PANEL:Init()
         row.OnMousePressed = function(pnl, mcode)
             if mcode ~= MOUSE_LEFT then return end
             if is_selected then return end
-
-            -- MALICE rank gate on client
-            if capture == 6 and not HORDE:PlayerCanVoteMalice(LocalPlayer()) then
-                chat.AddText(Color(255, 100, 60), "[Horde] You need at least Skilled rank in any class/subclass to vote for MALICE difficulty.")
-                return
-            end
 
             -- Update all rows locally
             for j, entry in ipairs(self.diff_panels) do

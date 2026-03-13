@@ -35,8 +35,9 @@ local function GetVoteOptions(phase)
         return opts
     elseif phase == "waveset" then
         return {
-            { id = "default", label = "DEFAULT", color = Color(180, 80,  80) },
-            { id = "xeno",    label = "XENO",    color = Color(50,  220, 80) },
+            { id = "default",       label = "DEFAULT",       color = Color(180, 80,  80)  },
+            { id = "xeno",          label = "XENO",          color = Color(50,  220, 80)  },
+            { id = "sea_infection", label = "SEA-INFECTION", color = Color(40,  140, 220) },
         }
     end
     return {}
@@ -95,7 +96,7 @@ local function ApplyResult(phase, winning_id)
         end
     elseif phase == "waveset" then
         local ws = tostring(winning_id)
-        if ws == "default" or ws == "xeno" then
+        if ws == "default" or ws == "xeno" or ws == "sea_infection" then
             HORDE.waveset = ws
             local function ReloadEnemiesByWaveset(waveset) end  -- stub; real one is in sh_enemy
             -- Reload enemies via the existing helper (fires as if admin clicked it)

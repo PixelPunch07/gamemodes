@@ -208,6 +208,8 @@ function entmeta:Horde_AddDebuffBuildup(debuff, buildup, inflictor, pos)
             end)
         elseif debuff == HORDE.Status_Hemorrhage then
             self:Horde_ActivateHemorrhage()
+        elseif debuff == HORDE.Status_Nervous_Impairment then
+            self:Horde_AddNervousImpairmentEffect(inflictor, duration)
         end
 
         if not self.Horde_Debuff_Active[debuff] then
@@ -293,6 +295,8 @@ function entmeta:Horde_AddDebuffBuildup(debuff, buildup, inflictor, pos)
             end)
         elseif debuff == HORDE.Status_Stun then
             self:Horde_AddStun(duration)
+        elseif debuff == HORDE.Status_Nervous_Impairment then
+            self:Horde_AddNervousImpairmentEffect(inflictor, duration)
         end
 
         self.Horde_Debuff_Active[debuff] = true
@@ -314,6 +318,8 @@ function entmeta:Horde_RemoveDebuff(debuff)
         if debuff == HORDE.Status_Hemorrhage then
             local id = self:GetCreationID()
             timer.Remove("Horde_HemorrhageLoop" .. id)
+        elseif debuff == HORDE.Status_Nervous_Impairment then
+            self:Horde_RemoveNervousImpairment()
         end
     else
         self.Horde_Debuff_Cooldown[debuff] = true

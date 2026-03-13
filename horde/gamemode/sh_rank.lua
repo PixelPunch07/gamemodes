@@ -173,3 +173,32 @@ net.Receive("Horde_SyncExp", function(length)
     ply:Horde_SetExp(class_name, exp)
 end)
 end
+-- =============================================================================
+-- Rank ordering table (shared) — used by rank-gate checks.
+-- =============================================================================
+HORDE.rank_order = {
+    [HORDE.Rank_Novice]       = 1,
+    [HORDE.Rank_Amateur]      = 2,
+    [HORDE.Rank_Skilled]      = 3,
+    [HORDE.Rank_Professional] = 4,
+    [HORDE.Rank_Expert]       = 5,
+    [HORDE.Rank_Champion]     = 6,
+    [HORDE.Rank_Elite]        = 7,
+    [HORDE.Rank_Veteran]      = 8,
+    [HORDE.Rank_Legend]       = 9,
+    [HORDE.Rank_Master]       = 10,
+}
+
+-- Returns true if the player has ANY subclass whose rank is >= required_rank.
+-- Works on both server and client (HORDE.subclasses is shared).
+function HORDE:PlayerMeetsRank(ply, required_rank)
+    if not IsValid(ply) then return false end
+    local req = HORDE.rank_order[required_rank] or 1
+    for _, subclass in pairs(HORDE.subclasses) do
+        local rank = ply:Horde_GetRank(subclass.PrintName)
+        if (HORDE.rank_order[rank] or 1) >= req then
+            return true
+        end
+    end
+    return false
+end

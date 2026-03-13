@@ -64,6 +64,8 @@ HORDE.STATUS_COLOR = {
     [HORDE.Status_Shock] = HORDE.DMG_COLOR[HORDE.DMG_LIGHTNING],
     [HORDE.Status_Stun] = Color(255, 255, 0),
     [HORDE.Status_Break] = HORDE.DMG_COLOR[HORDE.DMG_POISON],
+    -- Nervous Impairment: deep bioluminescent blue
+    [HORDE.Status_Nervous_Impairment] = Color(30, 140, 255),
 }
 
 function HORDE:GetDamageType(dmginfo)

@@ -22,6 +22,7 @@ local status_color = {
     [HORDE.Status_Hemorrhage] = HORDE.color_crimson_violet,
     [HORDE.Status_Decay] = HORDE.STATUS_COLOR[HORDE.Status_Decay],
     [HORDE.Status_Necrosis] = HORDE.STATUS_COLOR[HORDE.Status_Necrosis],
+    [HORDE.Status_Nervous_Impairment] = HORDE.STATUS_COLOR[HORDE.Status_Nervous_Impairment],
     [HORDE.Status_CanHold] = Color(0, 255, 0),
     [HORDE.Status_HasPayload] = Color(0, 255, 0),
 }
